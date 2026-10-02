@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="GiftFinder.API/GiftFinder.API.csproj" />
+  <Project Path="GiftFinder.Application/GiftFinder.Application.csproj" />
+  <Project Path="GiftFinder.Domain/GiftFinder.Domain.csproj" />
+  <Project Path="GiftFinder.Infrastructure/GiftFinder.Infrastructure.csproj" />
+</Solution>
