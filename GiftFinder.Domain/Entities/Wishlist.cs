@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 
 namespace GiftFinder.Domain.Entities;
 
@@ -21,5 +21,20 @@ public class Wishlist : BaseAuditableEntity
         ProductId = productId;
         TargetPrice = targetPrice;
         Note = note;
+    }
+
+    public void UpdateDetails(long? targetPrice, string? note)
+    {
+        TargetPrice = targetPrice;
+        Note = note;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Restore(long? targetPrice = null, string? note = null)
+    {
+        IsDeleted = false;
+        TargetPrice = targetPrice ?? TargetPrice;
+        Note = note ?? Note;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

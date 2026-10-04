@@ -33,7 +33,7 @@ public class ReminderDate : BaseAuditableEntity
 
         UserId = userId;
         Title = title.Trim();
-        EventDate = eventDate;
+        EventDate = eventDate.ToUniversalTime();
         RecipientRelation = recipientRelation?.Trim();
         DaysBeforeNotify = daysBeforeNotify;
         Note = note?.Trim();
@@ -49,5 +49,28 @@ public class ReminderDate : BaseAuditableEntity
     public void MarkNotified(DateTime notifiedAt)
     {
         LastNotifiedAt = notifiedAt;
+    }
+
+    public void Update(string title, DateTime eventDate, string? recipientRelation, int daysBeforeNotify, string? note)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentException("Tiêu đề ngày kỷ niệm không được để trống.");
+
+        Title = title.Trim();
+        EventDate = eventDate.ToUniversalTime();
+        RecipientRelation = recipientRelation?.Trim();
+        DaysBeforeNotify = daysBeforeNotify;
+        Note = note?.Trim();
+        UpdatedAt = DateTime.UtcNow;
+
+        // Cập nhật lại cung hoàng đạo nếu là sinh nhật
+        if (Title.ToLowerInvariant().Contains("sinh nhật") || Title.ToLowerInvariant().Contains("birthday"))
+        {
+            RecipientZodiac = ZodiacCalculator.GetZodiacSign(eventDate.Day, eventDate.Month);
+        }
+        else
+        {
+            RecipientZodiac = null;
+        }
     }
 }

@@ -39,15 +39,33 @@ public class GeminiAiService : IAiRecommendationService
         };
 
         var jsonBody = JsonSerializer.Serialize(requestBody);
-        var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={_apiKey}";
         
-        var response = await _httpClient.PostAsync(url, content);
+        HttpResponseMessage? response = null;
+        int maxRetries = 3;
         
-        if (!response.IsSuccessStatusCode)
+        for (int i = 0; i < maxRetries; i++)
         {
-            return "Món quà này rất tuyệt vời và phù hợp với tính cách của người nhận!"; // Fallback nếu AI lỗi
+            // Cần tạo lại StringContent mỗi lần gửi vì HttpClient có thể dispose nó sau khi dùng
+            var retryContent = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+            response = await _httpClient.PostAsync(url, retryContent);
+            
+            if (response.IsSuccessStatusCode) break; // Thành công thì thoát vòng lặp
+            
+            // Nếu lỗi 503 (Overload) hoặc 429 (Too many requests), thì chờ một chút rồi thử lại
+            if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || (int)response.StatusCode == 429)
+            {
+                await Task.Delay(1500 * (i + 1)); // Chờ 1.5s, 3s...
+                continue;
+            }
+            
+            break; // Các lỗi khác (sai key, v.v.) thì dừng luôn
+        }
+        
+        if (response == null || !response.IsSuccessStatusCode)
+        {
+            var errorMsg = await response.Content.ReadAsStringAsync();
+            return $"[Lỗi AI - {response.StatusCode}]: {errorMsg}";
         }
 
         var jsonResponse = await response.Content.ReadAsStringAsync();
@@ -61,11 +79,11 @@ public class GeminiAiService : IAiRecommendationService
                 .GetProperty("parts")[0]
                 .GetProperty("text").GetString();
 
-            return text?.Trim() ?? "Món quà này rất tuyệt vời!";
+            return text?.Trim() ?? $"[Lỗi AI]: Google trả về dữ liệu rỗng. Dữ liệu gốc: {jsonResponse}";
         }
-        catch
+        catch (Exception ex)
         {
-            return "Đây là một sự lựa chọn quà tặng hoàn hảo!";
+            return $"[Lỗi Phân Tích JSON]: Không đọc được kết quả từ Google. Chi tiết: {ex.Message}. Dữ liệu gốc: {jsonResponse}";
         }
     }
 }
