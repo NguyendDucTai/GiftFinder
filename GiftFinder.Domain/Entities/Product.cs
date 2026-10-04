@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 using GiftFinder.Domain.Enums;
 
 namespace GiftFinder.Domain.Entities;
@@ -23,6 +23,10 @@ public class Product : BaseAuditableEntity
 
     public bool IsFeatured { get; private set; }
     public DateTime? FeaturedUntil { get; private set; }
+
+    // Tính năng mở rộng: Gợi ý theo Cung Hoàng Đạo (Tùy chọn)
+    public List<ZodiacSign> SuitableZodiacs { get; private set; } = new();
+
     public double Rating { get; private set; }
     public int TotalReviews { get; private set; }
 

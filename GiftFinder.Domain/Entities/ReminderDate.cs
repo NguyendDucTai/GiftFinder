@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 
 namespace GiftFinder.Domain.Entities;
 
@@ -14,6 +14,9 @@ public class ReminderDate : BaseAuditableEntity
     public bool IsActive { get; private set; } = true;
     public string? Note { get; private set; }
     public DateTime? LastNotifiedAt { get; private set; }
+    
+    // Thuộc tính tùy chọn: Cung hoàng đạo của người nhận (Dành cho Sinh nhật)
+    public GiftFinder.Domain.Enums.ZodiacSign? RecipientZodiac { get; private set; }
 
     protected ReminderDate() { }
 
@@ -35,6 +38,12 @@ public class ReminderDate : BaseAuditableEntity
         DaysBeforeNotify = daysBeforeNotify;
         Note = note?.Trim();
         IsActive = true;
+
+        // Tự động nhận diện sinh nhật để tính Cung Hoàng Đạo
+        if (Title.ToLowerInvariant().Contains("sinh nhật") || Title.ToLowerInvariant().Contains("birthday"))
+        {
+            RecipientZodiac = ZodiacCalculator.GetZodiacSign(eventDate.Day, eventDate.Month);
+        }
     }
 
     public void MarkNotified(DateTime notifiedAt)

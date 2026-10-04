@@ -10,12 +10,19 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Đăng ký ApplicationDbContext (đã được dời từ Program.cs sang đây để giữ code gọn gàng chuẩn Clean Architecture)
+        // Đăng ký ApplicationDbContext
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
-        // Map interface IApplicationDbContext với class ApplicationDbContext
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
+
+        // Đăng ký Auth Services
+        services.Configure<Authentication.JwtSettings>(configuration.GetSection(Authentication.JwtSettings.SectionName));
+        services.AddSingleton<IJwtTokenGenerator, Authentication.JwtTokenGenerator>();
+        services.AddSingleton<IPasswordHasher, Authentication.PasswordHasher>();
+
+        // Đăng ký AI Service
+        services.AddHttpClient<IAiRecommendationService, AI.GeminiAiService>();
 
         return services;
     }
