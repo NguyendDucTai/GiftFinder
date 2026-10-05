@@ -30,6 +30,9 @@ public class Product : BaseAuditableEntity
     public double Rating { get; private set; }
     public int TotalReviews { get; private set; }
 
+    // UC-04: Đánh giá ngầm (Implicit Tracking)
+    public int PopularityScore { get; private set; } = 0;
+
     private readonly List<ProductTag> _productTags = new();
     public IReadOnlyCollection<ProductTag> ProductTags => _productTags.AsReadOnly();
 
@@ -137,6 +140,15 @@ public class Product : BaseAuditableEntity
         if (item != null)
         {
             _productTags.Remove(item);
+        }
+    }
+
+    // UC-04: Cộng điểm tương tác ngầm (vd: Click Affiliate = +10, Thêm Wishlist = +20)
+    public void IncreasePopularityScore(int points)
+    {
+        if (points > 0)
+        {
+            PopularityScore += points;
         }
     }
 }

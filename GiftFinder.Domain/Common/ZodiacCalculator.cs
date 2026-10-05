@@ -26,4 +26,27 @@ public static class ZodiacCalculator
             _ => throw new ArgumentException("Tháng không hợp lệ")
         };
     }
+
+    /// <summary>
+    /// Lấy tên tiếng Việt của Cung Hoàng Đạo
+    /// </summary>
+    public static string GetVietnameseName(this ZodiacSign sign)
+    {
+        return sign switch
+        {
+            ZodiacSign.Aries => "Bạch Dương",
+            ZodiacSign.Taurus => "Kim Ngưu",
+            ZodiacSign.Gemini => "Song Tử",
+            ZodiacSign.Cancer => "Cự Giải",
+            ZodiacSign.Leo => "Sư Tử",
+            ZodiacSign.Virgo => "Xử Nữ",
+            ZodiacSign.Libra => "Thiên Bình",
+            ZodiacSign.Scorpio => "Bọ Cạp (Thiên Yết)",
+            ZodiacSign.Sagittarius => "Nhân Mã",
+            ZodiacSign.Capricorn => "Ma Kết",
+            ZodiacSign.Aquarius => "Bảo Bình",
+            ZodiacSign.Pisces => "Song Ngư",
+            _ => sign.ToString()
+        };
+    }
 }

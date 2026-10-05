@@ -31,16 +31,28 @@ File này được tạo ra để ghi nhớ những gì chúng ta đã làm, gi�
 - Xử lý giới hạn 50 bản ghi trên mỗi người dùng.
 - Tự động nhận diện tiêu đề "Sinh nhật" hoặc "Birthday" để tính toán Cung Hoàng Đạo (`RecipientZodiac`) và lưu vào cơ sở dữ liệu.
 
+### 6. Nhắc lịch sinh nhật & kỷ niệm tự động kèm Email (UC-21)
+- Xây dựng `BirthdayReminderWorker` chạy ngầm (BackgroundService trong .NET 8) định kỳ quét cơ sở dữ liệu.
+- Xử lý thuật toán tính ngày kỷ niệm hàng năm và phát hiện các sự kiện sắp tới hạn theo cấu hình `DaysBeforeNotify`.
+- Tích hợp `SmtpEmailService` gửi email HTML thật qua máy chủ **Brevo SMTP** (`smtp-relay.brevo.com`).
+- Thiết kế Email Template dạng Card sang trọng với logo GiftFinder, hiển thị số ngày còn lại, ghi chú và nút CTA tìm quà.
+- **Việt hóa 100% Cung Hoàng Đạo:** Bổ sung hàm mở rộng `GetVietnameseName()` cho `ZodiacSign` (Thiên Bình, Bạch Dương, Song Tử,...).
+- Tự động lưu bản ghi `Notification` vào database và cập nhật `LastNotifiedAt` để chống gửi spam/lặp lại trong cùng 1 năm.
+- **Đã test thực tế thành công 100%:** Email gửi về hòm thư người dùng thực tế với thương hiệu **GiftFinder Platform**.
+- Đã dọn dẹp sạch sẽ toàn bộ các file test tạm thời, code sạch chuẩn Clean Architecture.
+
 ---
 
 ## ⏳ NHỮNG VIỆC CẦN LÀM TIẾP THEO (TO-DO)
 
-Khi quay lại dự án, hãy bắt đầu làm từ trên xuống dưới theo danh sách này:
+Khi quay lại dự án vào phiên tiếp theo, hãy làm tiếp từ mục số 6:
 
 - [x] **1. Cập nhật Database:** Đã đẩy cấu trúc Cung Hoàng Đạo lên PostgreSQL.
 - [x] **2. Tích hợp AI (Tầng Infrastructure):** Đã hoàn thiện `GeminiAiService` và tích hợp API Key thành công (hỗ trợ auto-retry chống nghẽn).
 - [x] **3. Viết API Gợi ý (UC-01 & Mở rộng):** Đã test thực tế thành công trên Swagger với Gemini AI sinh lời khuyên chuẩn xác theo Cung hoàng đạo và độ tuổi.
 - [x] **4. Quản lý ngày kỷ niệm (UC-15):** Viết các API Thêm/Sửa/Xóa/Xem `ReminderDate` (ngày sinh nhật của người thân, tự động tính cung hoàng đạo & tuổi).
-- [ ] **5. Đánh giá gợi ý quà tặng (UC-04):** Cho phép người dùng chấm điểm 1-5 sao trên mỗi gợi ý để làm dữ liệu train AI.
-- [ ] **6. Chia sẻ danh sách Wishlist (UC-03):** Tạo public link để chia sẻ cho bạn bè vote.
-- [ ] **7. Tích hợp Đăng nhập Google (OAuth):** (Tùy chọn) Bổ sung luồng đăng nhập nhanh bằng Google.
+- [x] **5. Nhắc lịch sinh nhật tự động kèm Email (UC-21):** Background Worker quét database, gửi Email HTML qua Brevo SMTP và lưu thông báo.
+- [x] **6. Đánh giá ngầm & Phân trang gợi ý (UC-04/UC-01):** Bỏ đánh giá 1-5 sao, chuyển sang phân trang vuốt vô hạn. Tự động thăng hạng (PopularityScore) dựa trên hành vi (Thêm Wishlist / Click). Đã hoàn thành code backend.
+- [ ] **7. Chia sẻ danh sách Wishlist (UC-03):** Tạo public share link (thời hạn 30 ngày) để bạn bè xem và vote quà.
+- [ ] **8. Module Affiliate Tracking (UC-09 -> UC-12):** Tạo link chuyển hướng Shopee/TikTok Shop gắn mã `ClickTrackingId` và nhận webhook hoa hồng.
+- [ ] **9. Tích hợp Đăng nhập Google (OAuth):** (Tùy chọn) Bổ sung luồng đăng nhập nhanh bằng Google.

@@ -24,6 +24,13 @@ public static class DependencyInjection
         // Đăng ký AI Service
         services.AddHttpClient<IAiRecommendationService, AI.GeminiAiService>();
 
+        // Đăng ký Email & Notification Services (UC-21)
+        services.Configure<GiftFinder.Application.Common.Models.EmailSettings>(
+            configuration.GetSection("EmailSettings"));
+        services.AddTransient<IEmailService, Services.SmtpEmailService>();
+        services.AddScoped<IReminderNotificationService, Services.ReminderNotificationService>();
+        services.AddHostedService<BackgroundJobs.BirthdayReminderWorker>();
+
         return services;
     }
 }

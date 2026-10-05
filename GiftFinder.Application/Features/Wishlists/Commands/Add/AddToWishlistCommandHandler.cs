@@ -20,8 +20,8 @@ public class AddToWishlistCommandHandler : IRequestHandler<AddToWishlistCommand,
     {
         var userId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("Vui lòng đăng nhập để lưu sản phẩm vào danh sách yêu thích.");
 
-        var productExists = await _context.Products.AnyAsync(p => p.Id == request.ProductId, cancellationToken);
-        if (!productExists)
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
+        if (product == null)
             throw new ArgumentException("Sản phẩm không tồn tại.");
 
         var wishlistCount = await _context.Wishlists.CountAsync(w => w.UserId == userId, cancellationToken);
@@ -42,6 +42,7 @@ public class AddToWishlistCommandHandler : IRequestHandler<AddToWishlistCommand,
                     throw new InvalidOperationException("Danh sách yêu thích đã đạt giới hạn 100 sản phẩm, vui lòng xóa bớt trước khi thêm mới.");
                 
                 existingWishlistItem.Restore(request.TargetPrice, request.Note);
+                product.IncreasePopularityScore(20);
                 await _context.SaveChangesAsync(cancellationToken);
                 return existingWishlistItem.Id;
             }
@@ -52,6 +53,8 @@ public class AddToWishlistCommandHandler : IRequestHandler<AddToWishlistCommand,
 
         var wishlistItem = new Wishlist(userId, request.ProductId, request.TargetPrice, request.Note);
         _context.Wishlists.Add(wishlistItem);
+        
+        product.IncreasePopularityScore(20);
         
         await _context.SaveChangesAsync(cancellationToken);
 
