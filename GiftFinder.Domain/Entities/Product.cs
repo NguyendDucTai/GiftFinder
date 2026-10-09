@@ -77,6 +77,22 @@ public class Product : BaseAuditableEntity
         AffiliateUrl = affiliateUrl.Trim();
     }
 
+    public void SetDescription(string? description)
+    {
+        Description = description?.Trim();
+    }
+
+    public void SetRating(double rating, int totalReviews)
+    {
+        Rating = Math.Clamp(rating, 0.0, 5.0);
+        TotalReviews = Math.Max(0, totalReviews);
+    }
+
+    public void SetSuitableZodiacs(IEnumerable<ZodiacSign> zodiacs)
+    {
+        SuitableZodiacs = zodiacs?.Distinct().ToList() ?? new List<ZodiacSign>();
+    }
+
     public void Approve()
     {
         if (_productTags.Count == 0)
@@ -143,12 +159,21 @@ public class Product : BaseAuditableEntity
         }
     }
 
-    // UC-04: Cộng điểm tương tác ngầm (vd: Click Affiliate = +10, Thêm Wishlist = +20)
+    // UC-04: Cộng điểm tương tác ngầm (vd: Click Affiliate = +10, Thêm Wishlist = +10)
     public void IncreasePopularityScore(int points)
     {
         if (points > 0)
         {
             PopularityScore += points;
+        }
+    }
+
+    public void DecreasePopularityScore(int points)
+    {
+        if (points > 0)
+        {
+            PopularityScore -= points;
+            if (PopularityScore < 0) PopularityScore = 0; // Luôn đảm bảo không có điểm âm như đã hứa
         }
     }
 }

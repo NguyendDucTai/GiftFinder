@@ -365,3 +365,10 @@ FodyWeavers.xsd
 scratch/
 extracted_docs.txt
 dotnet-tools.json
+
+.dotnet/
+.dotnet_cli/
+docx_extracted/
+
+GiftFinder.API/appsettings.Development.json
+**/appsettings.Development.json

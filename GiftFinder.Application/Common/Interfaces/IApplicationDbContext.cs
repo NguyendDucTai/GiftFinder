@@ -19,6 +19,9 @@ public interface IApplicationDbContext
     DbSet<ReminderDate> ReminderDates { get; }
     DbSet<Transaction> Transactions { get; }
     DbSet<Notification> Notifications { get; }
+    DbSet<GiftPoll> GiftPolls { get; }
+    DbSet<GiftPollItem> GiftPollItems { get; }
+    DbSet<GiftPollVote> GiftPollVotes { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -5,6 +5,9 @@ namespace GiftFinder.Application.Features.Recommendations.Queries.GetRecommendat
 
 public class GetRecommendationsQuery : IRequest<PagedRecommendationResult>
 {
+    // Tìm kiếm bằng câu tự nhiên (AI Prompt) - VD: "Tìm quà sinh nhật cho bạn gái thích decor tầm 500k"
+    public string? Prompt { get; set; }
+
     public long? MaxBudget { get; set; }
     public ZodiacSign? TargetZodiac { get; set; }
     public Guid? OccasionTagId { get; set; }

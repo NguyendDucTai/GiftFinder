@@ -42,7 +42,7 @@ public class AddToWishlistCommandHandler : IRequestHandler<AddToWishlistCommand,
                     throw new InvalidOperationException("Danh sách yêu thích đã đạt giới hạn 100 sản phẩm, vui lòng xóa bớt trước khi thêm mới.");
                 
                 existingWishlistItem.Restore(request.TargetPrice, request.Note);
-                product.IncreasePopularityScore(20);
+                product.IncreasePopularityScore(8);
                 await _context.SaveChangesAsync(cancellationToken);
                 return existingWishlistItem.Id;
             }
@@ -54,7 +54,7 @@ public class AddToWishlistCommandHandler : IRequestHandler<AddToWishlistCommand,
         var wishlistItem = new Wishlist(userId, request.ProductId, request.TargetPrice, request.Note);
         _context.Wishlists.Add(wishlistItem);
         
-        product.IncreasePopularityScore(20);
+        product.IncreasePopularityScore(10);
         
         await _context.SaveChangesAsync(cancellationToken);
 

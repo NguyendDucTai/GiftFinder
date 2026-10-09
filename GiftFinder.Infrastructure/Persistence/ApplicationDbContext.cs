@@ -34,6 +34,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    // 6. Gift Poll & Social Share (UC-03)
+    public DbSet<GiftPoll> GiftPolls => Set<GiftPoll>();
+    public DbSet<GiftPollItem> GiftPollItems => Set<GiftPollItem>();
+    public DbSet<GiftPollVote> GiftPollVotes => Set<GiftPollVote>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

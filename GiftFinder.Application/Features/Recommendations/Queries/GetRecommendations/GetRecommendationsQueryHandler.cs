@@ -18,14 +18,47 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
 
     public async Task<PagedRecommendationResult> Handle(GetRecommendationsQuery request, CancellationToken cancellationToken)
     {
-        // 1. Lọc dữ liệu cơ bản (Ngân sách, Trạng thái)
+        ParsedRecommendationIntent? parsedIntent = null;
+
+        // 1. Nếu người dùng nhập câu Prompt tự nhiên -> Dùng Gemini AI bóc tách ý định
+        if (!string.IsNullOrWhiteSpace(request.Prompt))
+        {
+            parsedIntent = await _aiService.ParsePromptAsync(request.Prompt, cancellationToken);
+
+            // AI Guardrail: Nếu câu hỏi không liên quan đến tìm quà (lạc đề, quấy rối, vô nghĩa)
+            if (parsedIntent != null && !parsedIntent.IsValidGiftIntent)
+            {
+                return new PagedRecommendationResult
+                {
+                    Items = new List<ProductRecommendationDto>(),
+                    TotalCount = 0,
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize,
+                    IsValidIntent = false,
+                    Message = parsedIntent.AiMessage,
+                    InterpretedIntent = parsedIntent
+                };
+            }
+        }
+
+        // 2. Gộp tiêu chí thông minh (Ưu tiên bộ lọc thủ công nếu có, nếu không thì lấy từ AI)
+        var effectiveBudget = request.MaxBudget ?? parsedIntent?.MaxBudget;
+        var effectiveZodiac = request.TargetZodiac ?? parsedIntent?.TargetZodiac;
+        var effectiveRelationship = !string.IsNullOrWhiteSpace(request.Relationship) 
+            ? request.Relationship 
+            : parsedIntent?.Relationship;
+        var effectiveAge = request.TargetAge ?? parsedIntent?.TargetAge;
+
+        // 3. Truy vấn Database cơ bản (Ngân sách & Trạng thái duyệt)
         var query = _context.Products
             .AsNoTracking()
+            .Include(p => p.ProductTags)
+                .ThenInclude(pt => pt.Tag)
             .Where(p => p.Status == Domain.Enums.ProductStatus.Approved);
 
-        if (request.MaxBudget.HasValue)
+        if (effectiveBudget.HasValue && effectiveBudget.Value > 0)
         {
-            query = query.Where(p => p.Price <= request.MaxBudget.Value);
+            query = query.Where(p => p.Price <= effectiveBudget.Value);
         }
 
         if (request.OccasionTagId.HasValue)
@@ -38,14 +71,50 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
             query = query.Where(p => p.ProductTags.Any(pt => pt.TagId == request.InterestTagId.Value));
         }
 
-        // Tải danh sách về bộ nhớ để sắp xếp linh hoạt
         var products = await query.ToListAsync(cancellationToken);
 
-        // 2. Tùy chọn sắp xếp ưu tiên (Boost) Cung Hoàng Đạo & Điểm Tương tác (PopularityScore)
-        if (request.TargetZodiac.HasValue)
+        // 4. Tính điểm phù hợp (Match Scoring) dựa trên từ khóa do AI bóc tách
+        var interestKeywords = parsedIntent?.InterestKeywords ?? new List<string>();
+        var occasionKeyword = parsedIntent?.Occasion;
+
+        // Hàm tính điểm liên quan cho từng sản phẩm
+        int CalculateKeywordMatchScore(Product p)
+        {
+            int score = 0;
+            var nameLower = p.Name.ToLowerInvariant();
+            var descLower = (p.Description ?? "").ToLowerInvariant();
+
+            // Khớp Dịp tặng
+            if (!string.IsNullOrEmpty(occasionKeyword))
+            {
+                var occLower = occasionKeyword.ToLowerInvariant();
+                if (nameLower.Contains(occLower) || descLower.Contains(occLower) ||
+                    p.ProductTags.Any(pt => pt.Tag.Name.ToLowerInvariant().Contains(occLower)))
+                {
+                    score += 50;
+                }
+            }
+
+            // Khớp Sở thích / Ngành hàng
+            foreach (var kw in interestKeywords)
+            {
+                var kwLower = kw.ToLowerInvariant();
+                if (nameLower.Contains(kwLower) || descLower.Contains(kwLower) ||
+                    p.ProductTags.Any(pt => pt.Tag.Name.ToLowerInvariant().Contains(kwLower)))
+                {
+                    score += 30;
+                }
+            }
+
+            return score;
+        }
+
+        // 5. Xếp hạng sản phẩm ưu tiên: Khớp từ khóa AI -> Cung hoàng đạo -> Điểm hot (PopularityScore) -> Rating
+        if (effectiveZodiac.HasValue)
         {
             products = products
-                .OrderByDescending(p => p.SuitableZodiacs != null && p.SuitableZodiacs.Contains(request.TargetZodiac.Value))
+                .OrderByDescending(p => CalculateKeywordMatchScore(p))
+                .ThenByDescending(p => p.SuitableZodiacs != null && p.SuitableZodiacs.Contains(effectiveZodiac.Value))
                 .ThenByDescending(p => p.PopularityScore)
                 .ThenByDescending(p => p.Rating)
                 .ToList();
@@ -53,14 +122,15 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
         else
         {
             products = products
-                .OrderByDescending(p => p.PopularityScore)
+                .OrderByDescending(p => CalculateKeywordMatchScore(p))
+                .ThenByDescending(p => p.PopularityScore)
                 .ThenByDescending(p => p.Rating)
                 .ToList();
         }
 
         int totalCount = products.Count;
 
-        // 3. Đóng gói kết quả (Phân trang)
+        // 6. Phân trang
         var pagedProducts = products
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
@@ -76,29 +146,44 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
                 TotalReviews = p.TotalReviews
             }).ToList();
 
-        // 4. Nếu là trang đầu tiên và có chọn Cung Hoàng Đạo -> Gọi AI sinh lời khuyên cho Món Quà Top 1
-        if (request.PageNumber == 1 && request.TargetZodiac.HasValue && pagedProducts.Any())
+        // 7. Gọi AI sinh lời khuyên cho Món Quà Top 1 ở trang đầu tiên
+        if (request.PageNumber == 1 && pagedProducts.Any())
         {
             var topGift = pagedProducts.First();
-            var zodiacName = GetZodiacName(request.TargetZodiac.Value);
-            
-            // Gọi API Gemini
-            topGift.AiAdvice = await _aiService.GenerateGiftAdviceAsync(topGift.Name, zodiacName, request.Relationship, request.TargetAge);
+            var zodiacName = effectiveZodiac.HasValue 
+                ? GetZodiacName(effectiveZodiac.Value) 
+                : null;
+            var effectiveOccasion = parsedIntent?.Occasion;
+
+            topGift.AiAdvice = await _aiService.GenerateGiftAdviceAsync(
+                topGift.Name, 
+                zodiacName, 
+                effectiveRelationship, 
+                effectiveAge,
+                effectiveOccasion);
         }
 
-        // 5. Sinh bản ghi log tìm kiếm để phục vụ đánh giá ngầm (UC-04)
+        // 8. Sinh bản ghi log tìm kiếm để phục vụ đánh giá ngầm (UC-04)
         var recommendationLog = new RecommendationLog(
-            searchText: null,
-            recipient: request.Relationship,
-            occasion: request.OccasionTagId?.ToString(),
+            searchText: request.Prompt,
+            recipient: effectiveRelationship,
+            occasion: request.OccasionTagId?.ToString() ?? parsedIntent?.Occasion,
             budgetMin: null,
-            budgetMax: request.MaxBudget,
-            hobbies: request.InterestTagId?.ToString(),
+            budgetMax: effectiveBudget,
+            hobbies: request.InterestTagId?.ToString() ?? string.Join(", ", interestKeywords),
             resultCount: totalCount
         );
-        
+
         _context.RecommendationLogs.Add(recommendationLog);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Chuẩn hóa tên cung hoàng đạo sang tiếng Việt trong Summary nếu AI lỡ viết tiếng Anh
+        if (parsedIntent != null && effectiveZodiac.HasValue && !string.IsNullOrEmpty(parsedIntent.Summary))
+        {
+            var enZodiac = effectiveZodiac.Value.ToString();
+            var vnZodiac = GetZodiacName(effectiveZodiac.Value);
+            parsedIntent.Summary = parsedIntent.Summary.Replace(enZodiac, vnZodiac, StringComparison.OrdinalIgnoreCase);
+        }
 
         return new PagedRecommendationResult
         {
@@ -106,7 +191,10 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
             TotalCount = totalCount,
             PageNumber = request.PageNumber,
             PageSize = request.PageSize,
-            RecommendationLogId = recommendationLog.Id
+            RecommendationLogId = recommendationLog.Id,
+            InterpretedIntent = parsedIntent,
+            IsValidIntent = true,
+            Message = parsedIntent?.Summary
         };
     }
 

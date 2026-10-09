@@ -25,8 +25,15 @@ public class RemoveFromWishlistCommandHandler : IRequestHandler<RemoveFromWishli
         if (wishlistItem == null)
             throw new ArgumentException("Sản phẩm không có trong danh sách yêu thích của bạn.");
 
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
+
         wishlistItem.IsDeleted = true;
         wishlistItem.UpdatedAt = DateTime.UtcNow;
+
+        if (product != null)
+        {
+            product.DecreasePopularityScore(8);
+        }
 
         await _context.SaveChangesAsync(cancellationToken);
     }

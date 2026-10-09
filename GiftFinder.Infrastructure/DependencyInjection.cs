@@ -21,8 +21,11 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenGenerator, Authentication.JwtTokenGenerator>();
         services.AddSingleton<IPasswordHasher, Authentication.PasswordHasher>();
 
-        // Đăng ký AI Service
-        services.AddHttpClient<IAiRecommendationService, AI.GeminiAiService>();
+        // Đăng ký AI Service kết nối GroqCloud LPU siêu tốc
+        services.AddHttpClient<IAiRecommendationService, AI.GroqAiService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
 
         // Đăng ký Email & Notification Services (UC-21)
         services.Configure<GiftFinder.Application.Common.Models.EmailSettings>(
@@ -30,6 +33,12 @@ public static class DependencyInjection
         services.AddTransient<IEmailService, Services.SmtpEmailService>();
         services.AddScoped<IReminderNotificationService, Services.ReminderNotificationService>();
         services.AddHostedService<BackgroundJobs.BirthdayReminderWorker>();
+
+        // Đăng ký Affiliate Network Service (Shopee & TikTok Shop qua Accesstrade)
+        services.AddHttpClient<IAffiliateNetworkService, Affiliate.AccesstradeService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+        });
 
         return services;
     }

@@ -141,6 +141,124 @@ namespace GiftFinder.Infrastructure.Migrations
                     b.ToTable("ClickTrackings", (string)null);
                 });
 
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPoll", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ShareCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShareCode")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GiftPolls", (string)null);
+                });
+
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPollItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GiftPollId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("VoteCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("GiftPollId", "ProductId");
+
+                    b.ToTable("GiftPollItems", (string)null);
+                });
+
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPollVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GiftPollId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("VotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("GiftPollId", "IpAddress")
+                        .IsUnique();
+
+                    b.ToTable("GiftPollVotes", (string)null);
+                });
+
             modelBuilder.Entity("GiftFinder.Domain.Entities.Merchant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -769,6 +887,55 @@ namespace GiftFinder.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPoll", b =>
+                {
+                    b.HasOne("GiftFinder.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPollItem", b =>
+                {
+                    b.HasOne("GiftFinder.Domain.Entities.GiftPoll", "GiftPoll")
+                        .WithMany("PollItems")
+                        .HasForeignKey("GiftPollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GiftFinder.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GiftPoll");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPollVote", b =>
+                {
+                    b.HasOne("GiftFinder.Domain.Entities.GiftPoll", "GiftPoll")
+                        .WithMany()
+                        .HasForeignKey("GiftPollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GiftFinder.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GiftPoll");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("GiftFinder.Domain.Entities.Merchant", b =>
                 {
                     b.HasOne("GiftFinder.Domain.Entities.User", "User")
@@ -887,6 +1054,11 @@ namespace GiftFinder.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GiftFinder.Domain.Entities.GiftPoll", b =>
+                {
+                    b.Navigation("PollItems");
                 });
 
             modelBuilder.Entity("GiftFinder.Domain.Entities.Product", b =>
