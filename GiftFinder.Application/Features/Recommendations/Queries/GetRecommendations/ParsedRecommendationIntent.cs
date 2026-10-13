@@ -10,7 +10,9 @@ public class ParsedRecommendationIntent
     public string? Relationship { get; set; }           // Ví dụ: "bạn gái", "mẹ", "bạn trai", "đồng nghiệp"
     public int? TargetAge { get; set; }                 // Tuổi của người nhận (nếu có)
     public ZodiacSign? TargetZodiac { get; set; }       // Cung hoàng đạo (nếu có nhắc đến)
-    public long? MaxBudget { get; set; }                // Ngân sách tối đa (VNĐ)
+    public long? MinBudget { get; set; }                // Ngân sách tối thiểu (VNĐ) khi khách nói "trên 200k"
+    public long? MaxBudget { get; set; }                // Ngân sách tối đa (VNĐ) khi khách nói "dưới 200k"
+    public string? BudgetType { get; set; }             // "Above", "Below", "Around", "Range"
     public string? Occasion { get; set; }               // Dịp: "sinh nhật", "20/10", "valentine", "giáng sinh"...
     public List<string> InterestKeywords { get; set; } = new(); // Các từ khóa sở thích: "chụp ảnh", "decor", "công nghệ"...
     public string? Summary { get; set; }                // Tóm tắt ngắn gọn những gì AI hiểu

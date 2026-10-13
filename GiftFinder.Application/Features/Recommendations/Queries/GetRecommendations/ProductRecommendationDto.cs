@@ -13,4 +13,7 @@ public class ProductRecommendationDto
     
     // Lời khuyên cá nhân hóa từ AI (Gemini)
     public string? AiAdvice { get; set; }
+    
+    // Cờ đánh dấu sản phẩm được tài trợ / Đẩy Top
+    public bool IsFeatured { get; set; }
 }

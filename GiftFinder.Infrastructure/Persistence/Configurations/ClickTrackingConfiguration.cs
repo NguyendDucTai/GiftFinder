@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Entities;
+using GiftFinder.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -20,7 +20,7 @@ public class ClickTrackingConfiguration : IEntityTypeConfiguration<ClickTracking
 
         builder.Property(c => c.TrackingUrl)
             .IsRequired()
-            .HasMaxLength(1000);
+            .HasColumnType("text");
 
         builder.Property(c => c.IpAddress)
             .HasMaxLength(50);

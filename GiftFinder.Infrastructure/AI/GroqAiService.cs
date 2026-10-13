@@ -175,13 +175,27 @@ Hãy dùng toàn bộ năng lực thấu hiểu ngôn ngữ tự nhiên và ng�
    - relationship: chuỗi tên người nhận (bạn gái, mẹ, crush, bố, bạn thân, đồng nghiệp...) hoặc null.
    - targetAge: số nguyên tuổi hoặc null.
    - targetZodiac: Tên tiếng Anh 1 trong 12 cung hoàng đạo (Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces) hoặc null.
-   - maxBudget: số nguyên VNĐ. QUY TẮC BẮT BUỘC VỀ TỪ LÓNG TIỀN TỆ VIỆT NAM:
-     + 'lốp', 'lít', 'cành' = TRĂM NGHÌN (100.000 VNĐ).
-       Ví dụ: '3 lốp' = 300000 (KHÔNG ĐƯỢC LÀ 3.000.000), '5 lốp' = 500000, '2 lít' = 200000, '500 cành' = 500000.
-     + 'củ', 'chai', 'm', 'triệu' = TRIỆU (1.000.000 VNĐ).
-       Ví dụ: '2 củ' = 2000000, '3 chai' = 3000000, '1 củ rưỡi' = 1500000.
-     + 'k' = NGHÌN (1.000 VNĐ).
-       Ví dụ: '300k' = 300000, '50k' = 50000.
+   - minBudget: số nguyên VNĐ hoặc null.
+   - maxBudget: số nguyên VNĐ hoặc null.
+   - budgetType: 1 trong các giá trị [""Above"", ""Below"", ""Around"", ""Range""] hoặc null (nếu người dùng không nhắc đến giá tiền).
+   QUY TẮC PHÂN TÍCH NGỮ NGHĨA GIÁ TIỀN TIẾNG VIỆT BẮT BUỘC:
+     1. Trường hợp 'Trên / Hơn / Từ... trở lên' (budgetType = ""Above""):
+        - Ví dụ: 'quà trên 200k', 'hơn 500 cành', 'từ 1 triệu trở lên', 'trên 2 lít'
+        => minBudget = giá trị (200000), maxBudget = null, budgetType = ""Above"".
+     2. Trường hợp 'Dưới / Tối đa / Đổ lại' (budgetType = ""Below""):
+        - Ví dụ: 'quà dưới 200k', 'tối đa 5 lít', 'dưới 1 củ', '300k đổ lại'
+        => minBudget = null, maxBudget = giá trị (200000), budgetType = ""Below"".
+     3. Trường hợp 'Tầm / Khoảng / Loanh quanh' (budgetType = ""Around""):
+        - Ví dụ: 'quà tầm 200k', 'khoảng 3 lít', 'loanh quanh 500 cành'
+        => Tự động tính khoảng dung sai hợp lý (minBudget = ~75% mức giá, maxBudget = ~130% mức giá).
+        Ví dụ tầm 200k => minBudget = 150000, maxBudget = 260000, budgetType = ""Around"".
+     4. Trường hợp khoảng giá 'Từ... đến...' (budgetType = ""Range""):
+        - Ví dụ: 'từ 200k đến 500k', 'khoảng 1 đến 2 củ'
+        => minBudget = 200000, maxBudget = 500000, budgetType = ""Range"".
+     5. Quy đổi từ lóng tiền tệ Việt Nam:
+        + 'lốp', 'lít', 'cành' = TRĂM NGHÌN (100.000 VNĐ). (VD: '3 lốp' = 300000, '5 cành' = 500000, '2 lít' = 200000).
+        + 'củ', 'chai', 'm', 'triệu' = TRIỆU (1.000.000 VNĐ). (VD: '2 củ' = 2000000, '1 củ rưỡi' = 1500000).
+        + 'k' = NGHÌN (1.000 VNĐ). (VD: '200k' = 200000, '50k' = 50000).
    - occasion: dịp tặng (Sinh nhật, 20/10, Valentine, Giáng sinh, Kỷ niệm, Tốt nghiệp...) hoặc null.
    - interestKeywords: Mảng các từ khóa sở thích/phong cách phù hợp mà bạn tự suy luận ra từ ngữ cảnh (ví dụ: thích chill -> [""nến thơm"", ""trà"", ""sách""]).
    - summary: tóm tắt ngắn gọn 1 câu ý định tìm quà bằng tiếng Việt tự nhiên (chú ý: nếu có cung hoàng đạo thì luôn dùng tên tiếng Việt như Sư Tử, Bọ Cạp, Bạch Dương... thay vì tiếng Anh; đúng ngân sách quy đổi).
@@ -245,8 +259,22 @@ Xuất ra dưới dạng JSON thuần túy duy nhất.";
                 if (root.TryGetProperty("targetAge", out var ageEl) && ageEl.ValueKind == JsonValueKind.Number)
                     intent.TargetAge = ageEl.GetInt32();
 
-                if (root.TryGetProperty("maxBudget", out var budgetEl) && budgetEl.ValueKind == JsonValueKind.Number)
-                    intent.MaxBudget = budgetEl.GetInt64();
+                if (root.TryGetProperty("minBudget", out var minBudgetEl) && minBudgetEl.ValueKind == JsonValueKind.Number)
+                    intent.MinBudget = minBudgetEl.GetInt64();
+
+                if (root.TryGetProperty("maxBudget", out var maxBudgetEl) && maxBudgetEl.ValueKind == JsonValueKind.Number)
+                    intent.MaxBudget = maxBudgetEl.GetInt64();
+
+                if (root.TryGetProperty("budgetType", out var bTypeEl) && bTypeEl.ValueKind == JsonValueKind.String)
+                    intent.BudgetType = bTypeEl.GetString();
+
+                // Fallback nếu AI trả về min/max nhưng chưa gán budgetType
+                if (string.IsNullOrEmpty(intent.BudgetType))
+                {
+                    if (intent.MinBudget.HasValue && !intent.MaxBudget.HasValue) intent.BudgetType = "Above";
+                    else if (!intent.MinBudget.HasValue && intent.MaxBudget.HasValue) intent.BudgetType = "Below";
+                    else if (intent.MinBudget.HasValue && intent.MaxBudget.HasValue) intent.BudgetType = "Range";
+                }
 
                 if (root.TryGetProperty("occasion", out var occEl) && occEl.ValueKind == JsonValueKind.String)
                     intent.Occasion = occEl.GetString();
@@ -363,7 +391,8 @@ QUY TẮC ĐẦU RA:
 - occasions chọn từ: ['Sinh nhật', 'Valentine', '20/10', '8/3', 'Giáng sinh', 'Kỷ niệm', 'Tết', 'Tốt nghiệp', 'Tân gia'].
 - hobbies chọn từ: ['Công nghệ', 'Decor', 'Nến thơm & Chill', 'Thời trang', 'Mỹ phẩm & Làm đẹp', 'Đọc sách', 'Âm nhạc', 'Nấu ăn', 'Thể thao & Du lịch'].
 - suitableZodiacs chọn từ 1 đến 4 cung: ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'].
-- giftAdvice: 1-2 câu tư vấn giá trị quà tặng truyền cảm hứng bằng tiếng Việt lịch thiệp.";
+- giftAdvice: 1-2 câu tư vấn giá trị quà tặng truyền cảm hứng bằng tiếng Việt lịch thiệp.
+- zodiacRationale: 1-2 câu giải thích tại sao món quà này lại hợp với các cung hoàng đạo đã chọn (ví dụ: phong cách, tính cách cung hoàng đạo).";
 
         var productInfo = $"Tên sản phẩm: {productName}\nGiá: {price:N0} VNĐ\nMô tả: {description ?? "Không có mô tả"}";
 
@@ -401,6 +430,11 @@ QUY TẮC ĐẦU RA:
 
                 if (root.TryGetProperty("giftAdvice", out var advEl) && advEl.ValueKind == JsonValueKind.String)
                     result.GiftAdvice = advEl.GetString();
+
+                if (root.TryGetProperty("zodiacRationale", out var ratEl) && ratEl.ValueKind == JsonValueKind.String)
+                    result.ZodiacRationale = ratEl.GetString();
+                else
+                    result.ZodiacRationale = result.GiftAdvice;
 
                 if (root.TryGetProperty("occasions", out var occEl) && occEl.ValueKind == JsonValueKind.Array)
                 {
@@ -457,7 +491,8 @@ QUY TẮC ĐẦU RA:
             Occasions = new List<string> { "Sinh nhật", "Kỷ niệm" },
             Hobbies = new List<string> { "Decor", "Thời trang" },
             SuitableZodiacs = new List<ZodiacSign> { ZodiacSign.Cancer, ZodiacSign.Libra },
-            GiftAdvice = $"{productName} là một món quà ý nghĩa, tinh tế và thiết thực để gửi gắm tình cảm."
+            GiftAdvice = $"{productName} là một món quà ý nghĩa, tinh tế và thiết thực để gửi gắm tình cảm.",
+            ZodiacRationale = $"{productName} mang phong cách tinh tế, ấm cúng, rất phù hợp với gu thẩm mỹ và tính cách của Cự Giải và Thiên Bình."
         };
     }
 }

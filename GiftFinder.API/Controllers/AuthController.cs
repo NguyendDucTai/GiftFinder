@@ -1,4 +1,5 @@
 using GiftFinder.Application.Features.Auth.Commands.Register;
+using GiftFinder.Application.Features.Auth.Commands.RegisterMerchantAccount;
 using GiftFinder.Application.Features.Auth.Queries.Login;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,23 @@ public class AuthController : ControllerBase
 
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterCommand command)
+    {
+        try
+        {
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Đăng ký trực tiếp tài khoản Đối tác bán hàng (Merchant) mới trong 1 bước duy nhất
+    /// </summary>
+    [HttpPost("register-merchant")]
+    public async Task<IActionResult> RegisterMerchant([FromBody] RegisterMerchantAccountCommand command)
     {
         try
         {

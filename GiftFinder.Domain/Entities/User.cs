@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 using GiftFinder.Domain.Enums;
 
 namespace GiftFinder.Domain.Entities;
@@ -79,5 +79,10 @@ public class User : BaseAuditableEntity
     public void Activate()
     {
         IsActive = true;
+    }
+
+    public void ChangeRole(UserRole newRole)
+    {
+        Role = newRole;
     }
 }

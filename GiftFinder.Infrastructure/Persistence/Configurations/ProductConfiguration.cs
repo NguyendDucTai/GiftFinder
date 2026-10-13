@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Entities;
+using GiftFinder.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -21,13 +21,13 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.Property(p => p.OriginalUrl)
             .IsRequired()
-            .HasMaxLength(1000);
+            .HasColumnType("text");
 
         builder.Property(p => p.AffiliateUrl)
-            .HasMaxLength(1000);
+            .HasColumnType("text");
 
         builder.Property(p => p.ImageUrl)
-            .HasMaxLength(1000);
+            .HasColumnType("text");
 
         builder.Property(p => p.RejectReason)
             .HasMaxLength(500);

@@ -10,4 +10,5 @@ public class ProductTaggingResult
     public List<string> Hobbies { get; set; } = new();
     public List<ZodiacSign> SuitableZodiacs { get; set; } = new();
     public string? GiftAdvice { get; set; }
+    public string? ZodiacRationale { get; set; }
 }

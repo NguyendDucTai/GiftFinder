@@ -109,7 +109,14 @@ public class AccesstradeService : IAffiliateNetworkService
     {
         if (string.IsNullOrWhiteSpace(url)) return null;
 
-        var cleanUrl = url.Trim();
+        var cleanUrl = SanitizeUrl(url);
+        string? customAffiliateUrl = null;
+        if (cleanUrl.Contains("goeco.mobi", StringComparison.OrdinalIgnoreCase) ||
+            cleanUrl.Contains("passio.eco", StringComparison.OrdinalIgnoreCase))
+        {
+            customAffiliateUrl = cleanUrl;
+        }
+
         var source = ProductSource.Shopee;
         if (cleanUrl.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
             source = ProductSource.TikTokShop;
@@ -127,17 +134,28 @@ public class AccesstradeService : IAffiliateNetworkService
             if (matched != null)
             {
                 matched.OriginalUrl = cleanUrl;
-                matched.AffiliateUrl = await GenerateDeeplinkAsync(cleanUrl, $"item_{Guid.NewGuid():N}", cancellationToken);
+                matched.AffiliateUrl = customAffiliateUrl ?? await GenerateDeeplinkAsync(cleanUrl, $"item_{Guid.NewGuid():N}", cancellationToken);
                 return matched;
             }
         }
 
-        // Cào dữ liệu thực tế (OpenGraph metadata & redirect tracking) từ link sản phẩm (TikTok, Shopee, Tiki, Lazada)
+        // Cào dữ liệu thực tế (OpenGraph metadata & redirect tracking) từ link sản phẩm (TikTok, Shopee, Tiki, Lazada, Ecomobi)
         var metadata = await ScrapeProductMetadataAsync(cleanUrl, cancellationToken);
+        var effectiveUrl = SanitizeUrl(metadata.FinalUrl ?? cleanUrl);
+
+        // Tự động nhận diện sàn thực tế từ URL đích (đặc biệt khi dùng link rút gọn Ecomobi goeco.mobi)
+        if (effectiveUrl.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
+            source = ProductSource.TikTokShop;
+        else if (effectiveUrl.Contains("lazada.vn", StringComparison.OrdinalIgnoreCase) || cleanUrl.Contains("lazada.vn", StringComparison.OrdinalIgnoreCase))
+            source = ProductSource.Lazada;
+        else if (effectiveUrl.Contains("tiki.vn", StringComparison.OrdinalIgnoreCase))
+            source = ProductSource.Tiki;
+        else if (effectiveUrl.Contains("shopee.vn", StringComparison.OrdinalIgnoreCase))
+            source = ProductSource.Shopee;
 
         var title = !string.IsNullOrWhiteSpace(metadata.Title)
             ? metadata.Title
-            : FormatSlugToTitle(ExtractSlugFromUrl(cleanUrl));
+            : FormatSlugToTitle(ExtractSlugFromUrl(effectiveUrl));
 
         var description = !string.IsNullOrWhiteSpace(metadata.Description)
             ? metadata.Description
@@ -147,17 +165,19 @@ public class AccesstradeService : IAffiliateNetworkService
             ? metadata.ImageUrl
             : (source == ProductSource.TikTokShop
                 ? "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600"
-                : "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600");
+                : (source == ProductSource.Lazada
+                    ? "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600"
+                    : "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600"));
 
         var price = metadata.Price ?? (source == ProductSource.TikTokShop ? 189000L : 250000L);
-        var deeplink = await GenerateDeeplinkAsync(cleanUrl, $"item_{Guid.NewGuid():N}", cancellationToken);
+        var deeplink = customAffiliateUrl ?? await GenerateDeeplinkAsync(cleanUrl, $"item_{Guid.NewGuid():N}", cancellationToken);
 
         return new AffiliateProductFeedItem
         {
             Name = title,
             Price = price,
             OriginalPrice = (long)(price * 1.25),
-            OriginalUrl = cleanUrl,
+            OriginalUrl = effectiveUrl,
             AffiliateUrl = deeplink,
             Source = source,
             ExternalProductId = !string.IsNullOrWhiteSpace(metadata.ExternalId)
@@ -170,7 +190,7 @@ public class AccesstradeService : IAffiliateNetworkService
         };
     }
 
-    private async Task<(string? Title, string? ImageUrl, string? Description, long? Price, string? ExternalId)> ScrapeProductMetadataAsync(
+    private async Task<(string? Title, string? ImageUrl, string? Description, long? Price, string? ExternalId, string? FinalUrl)> ScrapeProductMetadataAsync(
         string url, 
         CancellationToken cancellationToken)
     {
@@ -185,13 +205,13 @@ public class AccesstradeService : IAffiliateNetworkService
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("HTTP GET metadata failed for URL {Url} with status code {StatusCode}", url, response.StatusCode);
-                return (null, null, null, null, null);
+                return (null, null, null, null, null, null);
             }
 
             var html = await response.Content.ReadAsStringAsync(cancellationToken);
             if (string.IsNullOrWhiteSpace(html))
             {
-                return (null, null, null, null, null);
+                return (null, null, null, null, null, null);
             }
 
             // 1. Trích xuất Tiêu đề (og:title, twitter:title hoặc <title>)
@@ -257,21 +277,23 @@ public class AccesstradeService : IAffiliateNetworkService
             if (!idMatch.Success) idMatch = Regex.Match(html, @"[""']product_id[""']\s*:\s*[""']?(\d{10,25})[""']?", RegexOptions.IgnoreCase);
             if (!idMatch.Success) idMatch = Regex.Match(finalUrl, @"-p(\d+)\.html", RegexOptions.IgnoreCase);
             if (!idMatch.Success) idMatch = Regex.Match(finalUrl, @"-i\.(\d+)\.(\d+)", RegexOptions.IgnoreCase);
+            if (!idMatch.Success) idMatch = Regex.Match(finalUrl, @"[/-]i(\d{8,15})", RegexOptions.IgnoreCase);
+            if (!idMatch.Success) idMatch = Regex.Match(finalUrl, @"pdp-i(\d+)", RegexOptions.IgnoreCase);
 
             if (idMatch.Success)
             {
                 externalId = idMatch.Groups[idMatch.Groups.Count - 1].Value;
             }
 
-            _logger.LogInformation("Đã cào metadata sản phẩm thành công từ {Url}: Tiêu đề='{Title}', ExternalId='{ExternalId}', Giá={Price}",
-                url, title, externalId, price);
+            _logger.LogInformation("Đã cào metadata sản phẩm thành công từ {Url}: Tiêu đề='{Title}', ExternalId='{ExternalId}', Giá={Price}, FinalUrl='{FinalUrl}'",
+                url, title, externalId, price, finalUrl);
 
-            return (title, imageUrl, description, price, externalId);
+            return (title, imageUrl, description, price, externalId, finalUrl);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Không thể cào metadata sản phẩm từ url: {Url}", url);
-            return (null, null, null, null, null);
+            return (null, null, null, null, null, null);
         }
     }
 
@@ -281,9 +303,27 @@ public class AccesstradeService : IAffiliateNetworkService
         CancellationToken cancellationToken = default)
     {
         var escapedSubId = Uri.EscapeDataString(subId);
-        var base64Url = Uri.EscapeDataString(Convert.ToBase64String(Encoding.UTF8.GetBytes(originalUrl)));
 
-        // Xác định Campaign ID chính thức trên Accesstrade theo từng sàn (ưu tiên cấu hình từ appsettings)
+        // 1. Nếu link đã là link affiliate của Ecomobi, giữ nguyên và gắn thêm sub1 nếu chưa có
+        if (originalUrl.Contains("goeco.mobi", StringComparison.OrdinalIgnoreCase) ||
+            originalUrl.Contains("passio.eco", StringComparison.OrdinalIgnoreCase))
+        {
+            var separator = originalUrl.Contains('?') ? "&" : "?";
+            var urlWithSub = originalUrl.Contains("sub1=") ? originalUrl : $"{originalUrl}{separator}sub1={escapedSubId}";
+            return Task.FromResult(urlWithSub);
+        }
+
+        // 2. Nếu là sản phẩm Lazada, tự động sinh link hoa hồng qua Ecomobi với Token của tài khoản
+        if (originalUrl.Contains("lazada.vn", StringComparison.OrdinalIgnoreCase))
+        {
+            var ecomobiToken = _configuration["Ecomobi:Token"] ?? "WrkhMbQezyWOwnMYpFEiz";
+            var encodedUrl = Uri.EscapeDataString(originalUrl);
+            var ecomobiDeeplink = $"https://goeco.mobi/?token={ecomobiToken}&url={encodedUrl}&advertiser_id=lazada.vn&global_domain=lazada.vn&sub1={escapedSubId}";
+            return Task.FromResult(ecomobiDeeplink);
+        }
+
+        // 3. Các sàn TikTok Shop, Tiki, Shopee xử lý qua Accesstrade
+        var base64Url = Uri.EscapeDataString(Convert.ToBase64String(Encoding.UTF8.GetBytes(originalUrl)));
         string campaignId;
         if (originalUrl.Contains("tiki.vn", StringComparison.OrdinalIgnoreCase))
         {
@@ -292,10 +332,6 @@ public class AccesstradeService : IAffiliateNetworkService
         else if (originalUrl.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
         {
             campaignId = _configuration["Accesstrade:CampaignIds:TikTokShop"] ?? "6648523843406889655"; // TIKTOK SHOP CPS
-        }
-        else if (originalUrl.Contains("lazada.vn", StringComparison.OrdinalIgnoreCase))
-        {
-            campaignId = _configuration["Accesstrade:CampaignIds:Lazada"] ?? "4348614539120935532"; // LAZADA VIETNAM
         }
         else
         {
@@ -324,6 +360,48 @@ public class AccesstradeService : IAffiliateNetworkService
         }
         catch { }
         return "mon-qua-tang-tinh-te";
+    }
+
+    private static string SanitizeUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return url;
+        var clean = url.Trim();
+
+        try
+        {
+            // Link Lazada: cắt bỏ toàn bộ query param rác sau .html (như ?c=&channelLpJumpArgs=&clickTrackInfo=...)
+            if (clean.Contains("lazada.vn/products/", StringComparison.OrdinalIgnoreCase) && clean.Contains(".html", StringComparison.OrdinalIgnoreCase))
+            {
+                var htmlIndex = clean.IndexOf(".html", StringComparison.OrdinalIgnoreCase);
+                if (htmlIndex > 0)
+                {
+                    return clean[..(htmlIndex + 5)];
+                }
+            }
+
+            // Link Shopee: cắt bỏ các query param rác tìm kiếm sau mã -i.
+            if (clean.Contains("shopee.vn", StringComparison.OrdinalIgnoreCase) && clean.Contains("-i."))
+            {
+                var qIndex = clean.IndexOf('?');
+                if (qIndex > 0)
+                {
+                    return clean[..qIndex];
+                }
+            }
+
+            // Link Tiki: cắt bỏ query param rác sau .html
+            if (clean.Contains("tiki.vn", StringComparison.OrdinalIgnoreCase) && clean.Contains(".html", StringComparison.OrdinalIgnoreCase))
+            {
+                var htmlIndex = clean.IndexOf(".html", StringComparison.OrdinalIgnoreCase);
+                if (htmlIndex > 0)
+                {
+                    return clean[..(htmlIndex + 5)];
+                }
+            }
+        }
+        catch { }
+
+        return clean;
     }
 
     private static string FormatSlugToTitle(string slug)

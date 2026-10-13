@@ -51,10 +51,8 @@ public class ProductsController : ControllerBase
             query = query.Where(p => p.Source == source.Value);
         }
 
-        if (status.HasValue)
-        {
-            query = query.Where(p => p.Status == status.Value);
-        }
+        var effectiveStatus = status ?? ProductStatus.Approved;
+        query = query.Where(p => p.Status == effectiveStatus);
 
         var total = await query.CountAsync();
         var safePageSize = Math.Clamp(pageSize, 1, 100);

@@ -57,9 +57,9 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
 
             try
             {
-                // Kiểm tra xem URL này đã được nạp vào kho chưa
+                // Kiểm tra xem URL này (gốc hoặc affiliate) đã được nạp vào kho chưa
                 var existingProduct = await _context.Products
-                    .FirstOrDefaultAsync(p => p.OriginalUrl == url, cancellationToken);
+                    .FirstOrDefaultAsync(p => p.OriginalUrl == url || p.AffiliateUrl == url, cancellationToken);
 
                 if (existingProduct != null)
                 {

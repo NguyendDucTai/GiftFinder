@@ -42,23 +42,38 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
         }
 
         // 2. Gộp tiêu chí thông minh (Ưu tiên bộ lọc thủ công nếu có, nếu không thì lấy từ AI)
-        var effectiveBudget = request.MaxBudget ?? parsedIntent?.MaxBudget;
+        var effectiveMinBudget = request.MinBudget ?? parsedIntent?.MinBudget;
+        var effectiveMaxBudget = request.MaxBudget ?? parsedIntent?.MaxBudget;
+        var budgetType = parsedIntent?.BudgetType;
+
+        if (string.IsNullOrEmpty(budgetType))
+        {
+            if (effectiveMinBudget.HasValue && !effectiveMaxBudget.HasValue) budgetType = "Above";
+            else if (!effectiveMinBudget.HasValue && effectiveMaxBudget.HasValue) budgetType = "Below";
+            else if (effectiveMinBudget.HasValue && effectiveMaxBudget.HasValue) budgetType = "Range";
+        }
+
         var effectiveZodiac = request.TargetZodiac ?? parsedIntent?.TargetZodiac;
         var effectiveRelationship = !string.IsNullOrWhiteSpace(request.Relationship) 
             ? request.Relationship 
             : parsedIntent?.Relationship;
         var effectiveAge = request.TargetAge ?? parsedIntent?.TargetAge;
 
-        // 3. Truy vấn Database cơ bản (Ngân sách & Trạng thái duyệt)
+        // 3. Truy vấn Database cơ bản (Chỉ lọc cứng nếu người dùng chủ động chọn trên giao diện)
         var query = _context.Products
             .AsNoTracking()
             .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
             .Where(p => p.Status == Domain.Enums.ProductStatus.Approved);
 
-        if (effectiveBudget.HasValue && effectiveBudget.Value > 0)
+        if (request.MinBudget.HasValue && request.MinBudget.Value > 0)
         {
-            query = query.Where(p => p.Price <= effectiveBudget.Value);
+            query = query.Where(p => p.Price >= request.MinBudget.Value);
+        }
+
+        if (request.MaxBudget.HasValue && request.MaxBudget.Value > 0)
+        {
+            query = query.Where(p => p.Price <= request.MaxBudget.Value);
         }
 
         if (request.OccasionTagId.HasValue)
@@ -76,6 +91,7 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
         // 4. Tính điểm phù hợp (Match Scoring) dựa trên từ khóa do AI bóc tách
         var interestKeywords = parsedIntent?.InterestKeywords ?? new List<string>();
         var occasionKeyword = parsedIntent?.Occasion;
+        var relationshipKeyword = effectiveRelationship?.ToLowerInvariant();
 
         // Hàm tính điểm liên quan cho từng sản phẩm
         int CalculateKeywordMatchScore(Product p)
@@ -95,6 +111,31 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
                 }
             }
 
+            // Khớp Đối tượng tặng (Relationship)
+            if (!string.IsNullOrEmpty(relationshipKeyword))
+            {
+                if (nameLower.Contains(relationshipKeyword) || descLower.Contains(relationshipKeyword) ||
+                    p.ProductTags.Any(pt => pt.Tag.Name.ToLowerInvariant().Contains(relationshipKeyword)))
+                {
+                    score += 40;
+                }
+
+                if (relationshipKeyword == "mẹ" || relationshipKeyword == "bố mẹ")
+                {
+                    if (p.ProductTags.Any(pt => pt.Tag.Name.Contains("20/10") || pt.Tag.Name.Contains("8/3") || pt.Tag.Name.ToLowerInvariant().Contains("bố mẹ")))
+                    {
+                        score += 30;
+                    }
+                }
+                else if (relationshipKeyword == "bạn gái" || relationshipKeyword == "người yêu" || relationshipKeyword == "crush")
+                {
+                    if (p.ProductTags.Any(pt => pt.Tag.Name.Contains("Valentine") || pt.Tag.Name.Contains("20/10") || pt.Tag.Name.Contains("8/3")))
+                    {
+                        score += 30;
+                    }
+                }
+            }
+
             // Khớp Sở thích / Ngành hàng
             foreach (var kw in interestKeywords)
             {
@@ -109,29 +150,92 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
             return score;
         }
 
-        // 5. Xếp hạng sản phẩm ưu tiên: Khớp từ khóa AI -> Cung hoàng đạo -> Điểm hot (PopularityScore) -> Rating
-        if (effectiveZodiac.HasValue)
+        var now = DateTime.UtcNow;
+        bool IsActiveFeatured(Product p) => p.IsFeatured && p.FeaturedUntil.HasValue && p.FeaturedUntil.Value > now;
+
+        // Hàm tính Tầng giá (Price Tier) theo đúng nguyên lý phân tầng:
+        // Tier 1: Khớp chuẩn 100% khoảng giá khách muốn (trên 200k => >= 200k)
+        // Tier 2: Hết Tier 1 thì hiển thị các món loanh quanh (tầm 100k - 1tr)
+        // Tier 3: Các món còn lại
+        int GetPriceTier(Product p)
         {
-            products = products
-                .OrderByDescending(p => CalculateKeywordMatchScore(p))
-                .ThenByDescending(p => p.SuitableZodiacs != null && p.SuitableZodiacs.Contains(effectiveZodiac.Value))
-                .ThenByDescending(p => p.PopularityScore)
-                .ThenByDescending(p => p.Rating)
-                .ToList();
-        }
-        else
-        {
-            products = products
-                .OrderByDescending(p => CalculateKeywordMatchScore(p))
-                .ThenByDescending(p => p.PopularityScore)
-                .ThenByDescending(p => p.Rating)
-                .ToList();
+            if (!effectiveMinBudget.HasValue && !effectiveMaxBudget.HasValue)
+                return 1;
+
+            if (budgetType == "Above" && effectiveMinBudget.HasValue)
+            {
+                if (p.Price >= effectiveMinBudget.Value) return 1; // Khớp chuẩn >= 200k
+                if (p.Price >= 100000 && p.Price < effectiveMinBudget.Value) return 2; // Loanh quanh cận dưới (100k - 200k)
+                return 3; // Quá xa
+            }
+
+            if (budgetType == "Below" && effectiveMaxBudget.HasValue)
+            {
+                if (p.Price <= effectiveMaxBudget.Value) return 1; // Khớp chuẩn <= 200k
+                if (p.Price > effectiveMaxBudget.Value && p.Price <= effectiveMaxBudget.Value * 1.5) return 2; // Loanh quanh cận trên
+                return 3; // Quá xa
+            }
+
+            if ((budgetType == "Around" || budgetType == "Range") && (effectiveMinBudget.HasValue || effectiveMaxBudget.HasValue))
+            {
+                var min = effectiveMinBudget ?? 0;
+                var max = effectiveMaxBudget ?? long.MaxValue;
+
+                if (p.Price >= min && p.Price <= max) return 1; // Khớp chuẩn trong khoảng
+                if (p.Price >= (min * 0.6) && p.Price <= (max * 1.5)) return 2; // Loanh quanh tầm giá
+                return 3;
+            }
+
+            return 1;
         }
 
-        int totalCount = products.Count;
+        // Hàm tính điểm tổng hợp cho từng sản phẩm
+        double CalculateTotalScore(Product p)
+        {
+            double score = CalculateKeywordMatchScore(p);
+
+            if (effectiveZodiac.HasValue && p.SuitableZodiacs != null && p.SuitableZodiacs.Contains(effectiveZodiac.Value))
+            {
+                score += 40;
+            }
+
+            score += (p.PopularityScore * 0.1);
+            score += (p.Rating * 5);
+
+            // UC-18: Ưu tiên cộng +20% điểm cho sản phẩm mua gói hiển thị nổi bật (Featured)
+            if (IsActiveFeatured(p))
+            {
+                score = (score * 1.2) + 15;
+            }
+
+            return score;
+        }
+
+        // 5. Xếp hạng sản phẩm phân tầng (Tiered Ranking):
+        // - Ưu tiên đưa các sản phẩm Featured phù hợp lên HÀNG ĐẦU TIÊN (Top 1 - 3 món đầu bảng, guardrail tối đa 3)
+        // - Các món tự nhiên xếp theo: Tầng giá 1 (đúng giá) -> Tầng giá 2 (loanh quanh) -> Tầng giá 3
+        var featuredItems = products
+            .Where(IsActiveFeatured)
+            .OrderBy(p => GetPriceTier(p))
+            .ThenByDescending(p => CalculateTotalScore(p))
+            .Take(3)
+            .ToList();
+
+        var featuredIdSet = featuredItems.Select(f => f.Id).ToHashSet();
+
+        var organicItems = products
+            .Where(p => !featuredIdSet.Contains(p.Id))
+            .OrderBy(p => GetPriceTier(p)) // Tầng 1 lên trước -> đến Tầng 2 loanh quanh -> đến Tầng 3
+            .ThenByDescending(p => CalculateTotalScore(p)) // Trong cùng tầng, món nào hợp nhất lên trước
+            .ThenByDescending(p => p.CreatedAt)
+            .ToList();
+
+        var rankedProducts = featuredItems.Concat(organicItems).ToList();
+
+        int totalCount = rankedProducts.Count;
 
         // 6. Phân trang
-        var pagedProducts = products
+        var pagedProducts = rankedProducts
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
             .Select(p => new ProductRecommendationDto
@@ -143,7 +247,8 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
                 AffiliateUrl = p.AffiliateUrl,
                 OriginalUrl = p.OriginalUrl,
                 Rating = p.Rating,
-                TotalReviews = p.TotalReviews
+                TotalReviews = p.TotalReviews,
+                IsFeatured = IsActiveFeatured(p)
             }).ToList();
 
         // 7. Gọi AI sinh lời khuyên cho Món Quà Top 1 ở trang đầu tiên
@@ -168,8 +273,8 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
             searchText: request.Prompt,
             recipient: effectiveRelationship,
             occasion: request.OccasionTagId?.ToString() ?? parsedIntent?.Occasion,
-            budgetMin: null,
-            budgetMax: effectiveBudget,
+            budgetMin: effectiveMinBudget,
+            budgetMax: effectiveMaxBudget,
             hobbies: request.InterestTagId?.ToString() ?? string.Join(", ", interestKeywords),
             resultCount: totalCount
         );

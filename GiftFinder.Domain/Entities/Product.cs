@@ -95,10 +95,6 @@ public class Product : BaseAuditableEntity
 
     public void Approve()
     {
-        if (_productTags.Count == 0)
-            throw new InvalidOperationException(
-                "Vui lòng chọn ít nhất một sở thích và một dịp tặng phù hợp cho sản phẩm trước khi duyệt.");
-
         Status = ProductStatus.Approved;
         RejectReason = null;
     }
@@ -110,6 +106,41 @@ public class Product : BaseAuditableEntity
 
         Status = ProductStatus.Rejected;
         RejectReason = reason.Trim();
+    }
+
+    public void UpdateMerchantDetails(
+        string name, 
+        long price, 
+        string originalUrl, 
+        string? description = null, 
+        string? imageUrl = null, 
+        long? originalPrice = null)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Tên sản phẩm không được để trống.");
+        if (price <= 0)
+            throw new ArgumentException("Giá sản phẩm phải là số nguyên dương.");
+        if (string.IsNullOrWhiteSpace(originalUrl))
+            throw new ArgumentException("Đường dẫn sản phẩm không được để trống.");
+
+        Name = name.Trim();
+        Price = price;
+        OriginalUrl = originalUrl.Trim();
+        Description = description?.Trim();
+        ImageUrl = imageUrl?.Trim();
+        OriginalPrice = originalPrice;
+
+        // Nếu sản phẩm đã duyệt trước đó, sau khi sửa thông tin sẽ tự động đưa về Pending để Admin duyệt lại (BR-03)
+        if (Status == ProductStatus.Approved)
+        {
+            Status = ProductStatus.Pending;
+            RejectReason = null;
+        }
+    }
+
+    public void Deactivate()
+    {
+        Status = ProductStatus.Inactive;
     }
 
     public void ActivateFeatured(FeaturedPlanType planType, DateTime from)

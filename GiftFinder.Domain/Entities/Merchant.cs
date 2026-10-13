@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 
 namespace GiftFinder.Domain.Entities;
 
@@ -16,7 +16,7 @@ public class Merchant : BaseAuditableEntity
 
     protected Merchant() { }
 
-    public Merchant(Guid userId, string shopName, string contactEmail, string contactPhone)
+    public Merchant(Guid userId, string shopName, string contactEmail, string contactPhone, string? businessLicense = null)
     {
         if (string.IsNullOrWhiteSpace(shopName))
             throw new ArgumentException("Tên shop không được để trống.");
@@ -27,7 +27,21 @@ public class Merchant : BaseAuditableEntity
         ShopName = shopName.Trim();
         ContactEmail = contactEmail.Trim();
         ContactPhone = contactPhone.Trim();
+        BusinessLicense = businessLicense?.Trim();
         IsVerified = false;
+    }
+
+    public void UpdateProfile(string shopName, string contactEmail, string contactPhone, string? businessLicense = null)
+    {
+        if (string.IsNullOrWhiteSpace(shopName))
+            throw new ArgumentException("Tên shop không được để trống.");
+        if (string.IsNullOrWhiteSpace(contactPhone))
+            throw new ArgumentException("Số điện thoại liên hệ không được để trống.");
+
+        ShopName = shopName.Trim();
+        ContactEmail = contactEmail.Trim();
+        ContactPhone = contactPhone.Trim();
+        BusinessLicense = businessLicense?.Trim();
     }
 
     public void Verify()
