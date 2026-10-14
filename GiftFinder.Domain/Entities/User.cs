@@ -71,6 +71,11 @@ public class User : BaseAuditableEntity
         AutoRenew = false;
     }
 
+    public void CancelAutoRenew()
+    {
+        AutoRenew = false;
+    }
+
     public void Deactivate()
     {
         IsActive = false;

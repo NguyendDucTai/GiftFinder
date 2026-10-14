@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 using GiftFinder.Domain.Enums;
 
 namespace GiftFinder.Domain.Entities;
@@ -10,7 +10,7 @@ public class Transaction : BaseAuditableEntity
 
     public TransactionType Type { get; private set; } = TransactionType.PremiumSubscription;
     public long Amount { get; private set; }
-    public string PaymentMethod { get; private set; } = "VNPay";
+    public string PaymentMethod { get; private set; } = "VietQR";
     public string? GatewayTransactionId { get; private set; }
     public PaymentStatus Status { get; private set; } = PaymentStatus.Pending;
     public string Description { get; private set; } = default!;
@@ -25,7 +25,7 @@ public class Transaction : BaseAuditableEntity
     protected Transaction() { }
 
     // Constructor cho thanh toán gói Premium cá nhân (UC-24)
-    public static Transaction CreatePremiumSubscription(Guid userId, long amount, string description, string paymentMethod = "VNPay")
+    public static Transaction CreatePremiumSubscription(Guid userId, long amount, string description, string paymentMethod = "VietQR")
     {
         return new Transaction
         {
