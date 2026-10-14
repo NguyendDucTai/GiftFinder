@@ -39,4 +39,34 @@ public class WebhooksController : ControllerBase
 
         return Ok(result);
     }
+
+    /// <summary>
+    /// [UC-27] Tiếp nhận Webhook IPN từ cổng thanh toán (PayOS / VietQR / Ngân hàng)
+    /// Tự động xác thực chữ ký, đối soát Idempotent, kích hoạt gói Premium (UC-14) và gửi email chúc mừng
+    /// </summary>
+    [HttpPost("payment")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ProcessPaymentWebhook(
+        [FromBody] GiftFinder.Application.Features.Subscriptions.DTOs.PaymentWebhookPayload payload)
+    {
+        var signature = Request.Headers["X-Signature"].ToString();
+        if (!string.IsNullOrWhiteSpace(signature) && string.IsNullOrWhiteSpace(payload.Signature))
+        {
+            payload.Signature = signature;
+        }
+
+        var command = new GiftFinder.Application.Features.Subscriptions.Commands.ProcessPaymentWebhook.ProcessPaymentWebhookCommand
+        {
+            Payload = payload,
+            RawJson = System.Text.Json.JsonSerializer.Serialize(payload)
+        };
+
+        var result = await _mediator.Send(command);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
 }

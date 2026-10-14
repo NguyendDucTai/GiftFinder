@@ -130,27 +130,43 @@
 - **Kiểm duyệt quà tặng từ Shop**: API xem danh sách quà đang chờ duyệt (`Pending`), phê duyệt (`Approved`) hoặc từ chối kèm lý do (`Rejected`).
 - **Quản lý người dùng**: Khóa và mở khóa tài khoản User hoặc Merchant vi phạm kèm lý do.
 
+### 15. Module Gói Thành Viên Premium & Cổng Thanh Toán VietQR (UC-14, UC-24, UC-27)
+- **Gói cước ưu đãi**: Cấu hình mức giá mới **15.000 VNĐ / tháng** (hoặc 45k/3 tháng, 150k/12 tháng).
+- **Cổng thanh toán VietQR**: Tích hợp dịch vụ sinh mã VietQR chuyển khoản ngân hàng chuẩn Napas 24/7 tự động (`https://img.vietqr.io/...`), sinh nội dung chuyển khoản duy nhất `GFPREMIUM <TransactionId>`.
+- **Khởi tạo thanh toán (`POST /api/Subscriptions/upgrade`)**: Tạo bản ghi `Transaction` (`Pending`), sinh mã VietQR và trả về hướng dẫn thanh toán chi tiết.
+- **Xử lý Webhook IPN (`POST /api/Webhooks/payment`)**: 
+  - Xác thực chữ ký/checksum giao dịch (BR-29).
+  - Đối soát Idempotent theo mã giao dịch chống lặp tiền (BR-30).
+  - Tự động hoàn tất giao dịch `Transaction.Complete()`, nâng cấp tài khoản `User.UpgradeToPremium()`.
+  - Gửi email HTML chúc mừng thành viên Premium qua **Brevo SMTP** và lưu bản ghi `Notification` hệ thống.
+- **Xem thông tin gói (`GET /api/Subscriptions/status`)**: Xem hạng thành viên, số ngày còn lại, tình trạng ân hạn, chế độ tự gia hạn và danh sách quyền lợi.
+- **Hủy tự động gia hạn (`POST /api/Subscriptions/cancel-auto-renew`)**: Người dùng chủ động tắt tự động gia hạn trước kỳ tiếp theo.
+- **Giả lập thanh toán Dev (`POST /api/Subscriptions/test-pay/{transactionId}`)**: Hỗ trợ kiểm thử tức thì trên Swagger mà không cần chuyển khoản thật.
+- **Background Worker Quản lý Hạn & Ân Hạn 3 Ngày (`SubscriptionExpirationWorker`)**:
+  - Chạy ngầm định kỳ quét các tài khoản Premium hết hạn.
+  - Tự động kích hoạt **Thời gian ân hạn 3 ngày** (Grace Period - BR-20) khi quá hạn và gửi email cảnh báo nhắc gia hạn qua Brevo SMTP.
+  - Tự động hạ cấp về `MembershipTier.Free` sau 3 ngày ân hạn nếu vẫn không thanh toán gia hạn thành công.
+
 ---
 
 ## ⏳ CÁC TÍNH NĂNG TIẾP THEO CẦN LÀM & LỘ TRÌNH PHÁT TRIỂN
 
 1. **Tự động hóa ngầm cho Merchant (Background Workers)**:
-   - Viết Worker chạy ngầm định kỳ hàng ngày tự động tắt cờ `IsFeatured = false` khi quá hạn `FeaturedUntil`.
+   - Viết Worker chạy ngầm định kỳ hàng ngày tự động tắt cờ `IsFeatured = false` khi quá hạn `FeaturedUntil` (UC-20).
    - Gửi Email cảnh báo trước 3 ngày nhắc Shop gia hạn gói tài trợ qua Brevo SMTP.
 
-2. **Cổng thanh toán trực tuyến VietQR / PayOS**:
-   - Tích hợp PayOS để sinh mã VietQR chuyển khoản tự động chuẩn ngân hàng Việt Nam.
-   - Nhận Webhook IPN ngân hàng để tự động khớp tiền và kích hoạt gói tuần (49k), tháng (199k) cho Shop hoặc gói Premium (29k) cho User.
+2. **Cổng thanh toán VietQR cho Gói Featured của Merchant (UC-25)**:
+   - Áp dụng cổng thanh toán VietQR đã xây dựng cho Merchant mua gói đẩy Top tuần (49k) hoặc tháng (199k).
 
-3. **Tính năng Phản hồi & Đánh giá Gợi ý Quà**:
+3. **Tính năng Phản hồi & Đánh giá Gợi ý Quà (UC-04)**:
    - Cho phép người dùng đánh giá 1-5 sao và để lại nhận xét sau khi nhận tư vấn từ AI để đo lường độ hài lòng.
 
-4. **Admin Quản lý Danh mục & Tag**:
-   - CRUD thêm, sửa, xóa các Tag Dịp tặng và Sở thích mới trong hệ thống.
+4. **Theo dõi biến động giá quà tặng (Price Tracking - UC-08 & UC-22)**:
+   - Cho phép User Premium theo dõi tối đa 20 sản phẩm, Worker quét giá hàng ngày và gửi thông báo khi giá giảm >= 5%.
 
 ---
 
 ## 🎯 KẾ HOẠCH BẮT ĐẦU CHO PHIÊN LÀM VIỆC TIẾP THEO:
-1. **Trạng thái hiện tại:** Toàn bộ hệ thống backend (.NET 8 Clean Architecture) đã hoàn thiện các tính năng cốt lõi, chạy mượt mà, kết nối database PostgreSQL và Groq AI ổn định.
+1. **Trạng thái hiện tại:** Module **UC-14 (Nâng cấp gói Premium 15.000đ/tháng)**, **UC-24 (Thanh toán gói Premium)**, **UC-27 (Webhook IPN)** và **SubscriptionExpirationWorker (BR-20)** đã hoàn thành 100%, tích hợp hoàn hảo vào Clean Architecture.
 2. **Build Status:** Biên dịch thành công 100% toàn bộ Solution (**0 Errors, 0 Warnings**).
-3. **Mục tiêu tiếp theo:** Bắt đầu triển khai **Worker tự động hết hạn gói Featured** hoặc **Cổng thanh toán VietQR / PayOS**.
+3. **Mục tiêu tiếp theo:** Triển khai **Worker tự động hết hạn gói Featured của Shop (UC-20)** hoặc **API Đánh giá gợi ý quà 1-5 sao (UC-04)**.
