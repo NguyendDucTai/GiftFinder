@@ -40,6 +40,10 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(20);
         });
 
+        // Đăng ký Payment Service (VietQR / PayOS) & Subscription Expiration Worker (UC-14, UC-24, BR-20)
+        services.AddScoped<IPaymentService, Services.VietQrPaymentService>();
+        services.AddHostedService<BackgroundJobs.SubscriptionExpirationWorker>();
+
         return services;
     }
 }
