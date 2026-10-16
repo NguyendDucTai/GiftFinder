@@ -77,6 +77,15 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     {
         var utcNow = DateTime.UtcNow;
 
+        // Đảm bảo mọi PriceHistory được sinh ra từ UpdatePrice luôn được INSERT (Added) thay vì UPDATE (Modified)
+        foreach (var entry in ChangeTracker.Entries<PriceHistory>())
+        {
+            if (entry.State == EntityState.Modified)
+            {
+                entry.State = EntityState.Added;
+            }
+        }
+
         foreach (var entry in ChangeTracker.Entries<BaseAuditableEntity>())
         {
             switch (entry.State)

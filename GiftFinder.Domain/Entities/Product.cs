@@ -82,6 +82,12 @@ public class Product : BaseAuditableEntity
         Description = description?.Trim();
     }
 
+    public void SetImageUrl(string? imageUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(imageUrl))
+            ImageUrl = imageUrl.Trim();
+    }
+
     public void SetRating(double rating, int totalReviews)
     {
         Rating = Math.Clamp(rating, 0.0, 5.0);
