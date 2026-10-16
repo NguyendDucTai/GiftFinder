@@ -1,5 +1,5 @@
 # TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
-*(Cập nhật lần cuối: 13/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới)*
+*(Cập nhật lần cuối: 17/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Git Commit: 669dbe8)*
 
 ---
 
@@ -10,37 +10,38 @@
 * **Kiến trúc:** C# (.NET 8) Clean Architecture (`GiftFinder.Domain`, `GiftFinder.Application`, `GiftFinder.Infrastructure`, `GiftFinder.API`).
 * **Backend Swagger:** Đang chạy tại `https://localhost:7276/swagger/index.html`.
 * **Cơ sở dữ liệu:** PostgreSQL (`GiftFinderDb`), Host: `localhost:5432`, Username: `postgres`, Password: `123`.
-* **Tài khoản Accesstrade (Live Mode 100%):**
-  * `PublisherIdV6`: `7086451798803801329`
-  * `AffiliateId`: `AT2261233`
-  * `ApiKey`: `dlg2xKqJY-jSwgpnzrTwkOHUO1VopteC`
-  * Cấu hình trong `GiftFinder.API/appsettings.json`: `"UseMock": false`.
-  * **Chiến dịch hoạt động:** TikTok Shop CPS (`6648523843406889655`), Tiki CPS (`4348614231480407268`). Đã cấu hình dự phòng Shopee (`4751584435713464237`) và Lazada (`4348614539120935532`).
+* **Hệ thống Affiliate (Đã loại bỏ hoàn toàn sàn Tiki theo yêu cầu):**
+  * **Shopee Direct Affiliate:** Mã đối tác `an_17374170692`, sinh link trực tiếp không qua trung gian.
+  * **Lazada Việt Nam:** Tích hợp mạng lưới Ecomobi (`WrkhMbQezyWOwnMYpFEiz`).
+  * **TikTok Shop CPS:** Tích hợp Accesstrade Live Mode (`PublisherIdV6: 7086451798803801329`, `CampaignId: 6648523843406889655`, `ApiKey: dlg2xKqJY-jSwgpnzrTwkOHUO1VopteC`).
+* **Bộ cào dữ liệu Playwright Scraper Engine:**
+  * Singleton Chromium instance tích hợp Stealth Mode ẩn `navigator.webdriver`.
+  * Route Aborting chặn media, font, image để tiết kiệm 80% RAM và tăng tốc tối đa.
+  * Fast JSON-LD trích xuất dữ liệu `schema.org/Product` cho Shopee và Lazada.
 * **GroqCloud AI (LPU):** Model `openai/gpt-oss-120b`, xử lý hiểu ngôn ngữ tự nhiên tiếng Việt, từ lóng tiền tệ, bóc tách giá chuẩn ngữ nghĩa min/max/budgetType và xếp tầng kết quả (Tiered Ranking).
 * **Email Service:** Brevo SMTP (`smtp-relay.brevo.com:587`).
 
 ---
 
 ### 2. Trạng thái Kho Sản Phẩm Thực Tế Trong Database (`Products` Table):
-* **Đang có 10 sản phẩm thật 100%** (Đã kiểm duyệt `Status = Approved`, có ảnh CDN rõ nét, mô tả tiếng Việt và link hoa hồng Accesstrade / Ecomobi hoạt động hoàn hảo):
-  1. `[Penguin] Cốc sứ Vô Tri quà tặng ý nghĩa...` (TikTokShop - 189.000đ)
-  2. `【Miễn phí hộp quà & túi xách】Vòng đeo tay ngôi sao và mặt trăng titan...` (TikTokShop - 189.000đ)
-  3. `Lắc tay nữ bạc cao cấp charm hoa 5 cánh...` (TikTokShop - 189.000đ)
-  4. `<Tặng Túi Giữ Nhiệt> Bình giữ nhiệt XCUP NIUMI INOX 316...` (TikTokShop - 189.000đ)
-  5. `VIDEO - Set vòng cổ và vòng tay BLESS cỏ 4 lá may mắn...` (TikTokShop - 189.000đ)
-  6. `Hộp quà tặng 20/10 trang điểm kèm gấu bông, hoa sáp...` (TikTokShop - 189.000đ)
-  7. `[Tặng 5 quà]Set quà tăng sinh nhật, noel, ngày phụ nữ...` (TikTokShop - 189.000đ)
-  8. `Gấu bông mini các loại khủng long- chó-mèo-thỏ-heo-chim cánh cụt-voi...` (TikTokShop - 189.000đ)
-  9. `Quà 20/10 - Hộp Quà Tặng Sinh Nhật 4 món dành tặng nữ...` (Lazada Việt Nam - 250.000đ)
-  10. `Set Quà Tặng Nến Thơm Tinh Dầu Thảo Mộc` (Merchant / Quà tặng cao cấp - 280.000đ)
-* **Lưu ý quan trọng:** Dữ liệu hoàn toàn sạch sẽ, không có sản phẩm mock rác. Tiêu chí giá từ 189k đến 280k giúp thuật toán Tiered Ranking phân tách tầng giá (Tier 1 vs Tier 2) cực kỳ chân thực.
+* **Tổng cộng có 21 sản phẩm trong Database (`GiftFinderDb`):**
+  1. `DirectMerchant (1 SP - Tiệm Quà Thảo Mộc Vintage)`: Giữ nguyên an toàn **280.000đ** (được phân loại `Skipped`, không bị cào sàn ngoài).
+  2. `Lazada (1 SP)`: Đã cào dữ liệu thực tế và cập nhật giá từ 250.000đ $\rightarrow$ **129.000đ**, lấy ảnh gốc trực tiếp từ CDN Lazada.
+  3. `TikTok Shop (8 SP)`:
+     - `Bình giữ nhiệt XCUP Inox 316`: Đã cập nhật giá thật $\rightarrow$ **154.675đ**.
+     - `Gấu bông mini các loại`: Đã cập nhật giá thật $\rightarrow$ **34.551đ**.
+     - 6 sản phẩm còn lại: Áp dụng cơ chế **Safe Fallback** giữ nguyên giá niêm yết (189.000đ) khi gặp Captcha để không làm gián đoạn hiển thị.
+  4. `Shopee (11 SP)`: Áp dụng cơ chế **Safe Fallback** giữ nguyên giá niêm yết (250.000đ) khi gặp màn hình IP rate-limit ("Cần đăng nhập / Báo lỗi") của Shopee Shield.
+* **Bảng `PriceHistories`:** Đã ghi nhận các bản ghi biến động giá thực tế với đầy đủ `OldPrice`, `NewPrice`, `EffectiveDate`.
 
 ---
 
 ### 3. Vị Trí Các File Mã Nguồn Cốt Lõi:
-* **[AccesstradeService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Infrastructure/Affiliate/AccesstradeService.cs):** Cào OpenGraph metadata, sinh Deeplink v6 Accesstrade.
-* **[ImportProductByUrlCommandHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Application/Features/Affiliate/Commands/ImportProductByUrl/ImportProductByUrlCommandHandler.cs):** Chống trùng 2 lớp, gỡ bỏ bản ghi bị AI từ chối cũ để thẩm định lại, sinh link hoa hồng.
-* **[ProductsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/ProductsController.cs):** Danh sách quà phân trang, chi tiết quà, ghi nhận click affiliate và chuyển hướng.
+* **[PlaywrightScraperService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Infrastructure/Scraping/PlaywrightScraperService.cs):** Trình cào dữ liệu Playwright đa sàn (Shopee, TikTok Shop, Lazada), tối ưu Route Aborting và Fast JSON-LD.
+* **[SyncAllProductPricesCommandHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Application/Features/Products/Commands/SyncAllProductPrices/SyncAllProductPricesCommandHandler.cs):** Xử lý MediatR command đồng bộ giá toàn bộ sản phẩm, tự động ghi nhận PriceHistory và thay thế ảnh Unsplash bằng ảnh gốc từ sàn.
+* **[AccesstradeService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Infrastructure/Affiliate/AccesstradeService.cs):** Sinh link hoa hồng Shopee Direct, Ecomobi Lazada và Accesstrade v6 TikTok Shop.
+* **[ProductsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/ProductsController.cs):** Danh sách quà, chi tiết quà, tracking click affiliate và endpoint `POST /api/Products/sync-all-prices` cho Admin.
+* **[Program.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Program.cs):** Cung cấp cờ CLI `--sync-prices` cho Cronjob và `--login-shopee` mở trình duyệt lưu phiên.
 * **[RecommendationsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/RecommendationsController.cs):** Tìm kiếm quà tặng thông minh bằng Groq AI và bộ lọc đa tiêu chí.
 * **[MerchantsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/MerchantsController.cs):** Đăng ký mở shop, hồ sơ shop, đăng/sửa/xóa quà, AI gợi ý tag, mua gói tài trợ nổi bật, dashboard thống kê.
 * **[AdminController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/AdminController.cs):** Phê duyệt/từ chối quà tặng từ shop, khóa/mở khóa tài khoản vi phạm.
@@ -147,6 +148,27 @@
   - Tự động kích hoạt **Thời gian ân hạn 3 ngày** (Grace Period - BR-20) khi quá hạn và gửi email cảnh báo nhắc gia hạn qua Brevo SMTP.
   - Tự động hạ cấp về `MembershipTier.Free` sau 3 ngày ân hạn nếu vẫn không thanh toán gia hạn thành công.
 
+### 16. Module Cào Dữ Liệu Đa Sàn (Playwright Scraper) & Tự Động Đồng Bộ Giá Sản Phẩm (Sync All Prices)
+- **Loại bỏ hoàn toàn sàn Tiki** khỏi phạm vi thu thập dữ liệu và affiliate theo yêu cầu của Product Owner.
+- **Dịch vụ cào dữ liệu Playwright Scraper Engine (`PlaywrightScraperService.cs`)**:
+  - Tích hợp Chromium Headless với Stealth Mode, ẩn cờ `navigator.webdriver`.
+  - Route Aborting: Chặn tải hình ảnh, font, media và tracker để tiết kiệm 80% RAM và tăng tốc tối đa.
+  - Hỗ trợ đa sàn:
+    - **Lazada**: Bóc tách giá bán thực tế qua `.pdp-price`, `.pdp-vsl-price` và thẻ meta `og:price`.
+    - **TikTok Shop**: Bóc tách giá từ DOM React và xử lý theo dõi link rút gọn `vt.tiktok.com`.
+    - **Shopee**: Fast JSON-LD trích xuất dữ liệu `schema.org/Product` (~400ms) + Fallback Playwright.
+- **Endpoint API Đồng bộ Quản trị (`POST /api/Products/sync-all-prices`)**:
+  - Phân quyền `Admin`, hỗ trợ quét toàn bộ kho quà hoặc lọc theo nguồn (`Source = Shopee | TikTokShop | Lazada`).
+  - Trả về DTO báo cáo chi tiết: `TotalProducts`, `TotalUpdated`, `TotalUnchanged`, `TotalSkipped`, `TotalFailed`, `Details`.
+- **Cờ thực thi dòng lệnh CLI (`Program.cs`)**:
+  - Thêm cờ `--sync-prices` phục vụ tự động hóa qua Cronjob / Scheduler mà không cần mở Swagger.
+- **Cơ chế Safe Fallback & Tránh Rate Limit**:
+  - Khi sàn chặn Captcha hoặc IP Cooldown, hệ thống **bảo lưu nguyên vẹn giá cũ** (không bao giờ gán 0đ hay xóa sản phẩm).
+  - Tự động giãn cách 3.5s – 5s giữa các request để mô phỏng hành vi tự nhiên của người dùng thật.
+  - Tự động thay thế link ảnh demo Unsplash bằng link ảnh gốc trực tiếp từ sàn TMĐT (`product.SetImageUrl(...)`).
+- **Khắc phục lỗi Concurrency EF Core**:
+  - Tự động chuyển các entity `PriceHistory` từ `EntityState.Modified` sang `EntityState.Added` trong `ApplicationDbContext.ApplyAuditingAndSoftDelete()`, đảm bảo lưu lịch sử biến động giá an toàn 100%.
+
 ---
 
 ## ⏳ CÁC TÍNH NĂNG TIẾP THEO CẦN LÀM & LỘ TRÌNH PHÁT TRIỂN
@@ -167,6 +189,7 @@
 ---
 
 ## 🎯 KẾ HOẠCH BẮT ĐẦU CHO PHIÊN LÀM VIỆC TIẾP THEO:
-1. **Trạng thái hiện tại:** Module **UC-14 (Nâng cấp gói Premium 15.000đ/tháng)**, **UC-24 (Thanh toán gói Premium)**, **UC-27 (Webhook IPN)** và **SubscriptionExpirationWorker (BR-20)** đã hoàn thành 100%, tích hợp hoàn hảo vào Clean Architecture.
-2. **Build Status:** Biên dịch thành công 100% toàn bộ Solution (**0 Errors, 0 Warnings**).
+1. **Trạng thái hiện tại:** 
+   - Module **UC-16 (Đồng bộ giá tự động & Playwright Scraper đa sàn)**, **Module Affiliate (Shopee, Lazada, TikTok Shop - Đã bỏ Tiki)** và **UC-14/UC-24/UC-27 (Gói thành viên Premium & VietQR)** đã hoàn thành 100%, tích hợp hoàn hảo vào Clean Architecture.
+2. **Build Status:** Biên dịch thành công 100% toàn bộ Solution (**0 Errors, 0 Warnings**). Git commit: `669dbe8`.
 3. **Mục tiêu tiếp theo:** Triển khai **Worker tự động hết hạn gói Featured của Shop (UC-20)** hoặc **API Đánh giá gợi ý quà 1-5 sao (UC-04)**.

@@ -1,4 +1,5 @@
 using GiftFinder.Application.Common.Interfaces;
+using GiftFinder.Application.Features.Products.Commands.SyncAllProductPrices;
 using GiftFinder.Application.Features.Products.Commands.TrackAffiliateClick;
 using GiftFinder.Domain.Enums;
 using MediatR;
@@ -164,4 +165,16 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// [Admin] Quét và tự động đồng bộ lại toàn bộ giá và ảnh gốc từ các sàn TMĐT về Database
+    /// </summary>
+    [HttpPost("sync-all-prices")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SyncAllProductPrices([FromBody] SyncAllProductPricesCommand? command)
+    {
+        var result = await _mediator.Send(command ?? new SyncAllProductPricesCommand());
+        return Ok(result);
+    }
 }
+
