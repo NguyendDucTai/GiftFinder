@@ -57,25 +57,7 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
 
             try
             {
-                // Kiểm tra xem URL này (gốc hoặc affiliate) đã được nạp vào kho chưa
-                var existingProduct = await _context.Products
-                    .FirstOrDefaultAsync(p => p.OriginalUrl == url || p.AffiliateUrl == url, cancellationToken);
-
-                if (existingProduct != null)
-                {
-                    if (existingProduct.Status == ProductStatus.Approved)
-                    {
-                        result.TotalSkipped++;
-                        result.Errors.Add($"Link '{url}' đã tồn tại trong kho (đã được duyệt).");
-                        continue;
-                    }
-
-                    // Nếu trước đó sản phẩm bị từ chối (ví dụ do cào thiếu thông tin), gỡ bỏ bản ghi cũ để AI thẩm định lại từ đầu
-                    _context.Products.Remove(existingProduct);
-                    await _context.SaveChangesAsync(cancellationToken);
-                }
-
-                // Bóc tách thông tin sản phẩm và tạo affiliate link
+                // Bóc tách thông tin sản phẩm và tạo affiliate link (hỗ trợ cào giá thật qua Playwright)
                 var item = await _affiliateService.FetchProductByUrlAsync(url, cancellationToken);
                 if (item == null)
                 {
@@ -84,24 +66,56 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
                     continue;
                 }
 
-                // Kiểm tra trùng theo mã sản phẩm thật trên sàn (ExternalProductId)
-                if (!string.IsNullOrWhiteSpace(item.ExternalProductId) && !item.ExternalProductId.StartsWith("URL_"))
-                {
-                    var duplicateByExternalId = await _context.Products
-                        .FirstOrDefaultAsync(p => p.Source == item.Source && p.ExternalProductId == item.ExternalProductId, cancellationToken);
+                // Kiểm tra xem sản phẩm đã có trong kho chưa (theo URL gốc, URL affiliate hoặc ExternalProductId)
+                var existingProduct = await _context.Products
+                    .FirstOrDefaultAsync(p => p.OriginalUrl == url || p.AffiliateUrl == url || 
+                        (!string.IsNullOrWhiteSpace(item.ExternalProductId) && !item.ExternalProductId.StartsWith("URL_") && p.Source == item.Source && p.ExternalProductId == item.ExternalProductId), 
+                        cancellationToken);
 
-                    if (duplicateByExternalId != null)
+                if (existingProduct != null)
+                {
+                    if (existingProduct.Status == ProductStatus.Approved)
                     {
-                        if (duplicateByExternalId.Status == ProductStatus.Approved)
+                        bool isUpdated = false;
+                        if (item.Price > 0 && item.Price != existingProduct.Price)
                         {
-                            result.TotalSkipped++;
-                            result.Errors.Add($"Sản phẩm '{item.Name}' (Mã sàn: {item.ExternalProductId}) đã tồn tại trong kho.");
-                            continue;
+                            existingProduct.UpdatePrice(item.Price);
+                            isUpdated = true;
                         }
 
-                        _context.Products.Remove(duplicateByExternalId);
-                        await _context.SaveChangesAsync(cancellationToken);
+                        if (!string.IsNullOrWhiteSpace(item.ImageUrl) && (existingProduct.ImageUrl == null || existingProduct.ImageUrl.Contains("unsplash.com")))
+                        {
+                            existingProduct.SetImageUrl(item.ImageUrl);
+                            isUpdated = true;
+                        }
+
+                        if (isUpdated)
+                        {
+                            await _context.SaveChangesAsync(cancellationToken);
+                            result.TotalSuccess++;
+                            result.SuccessProductNames.Add($"{existingProduct.Name} (Cập nhật giá thật: {item.Price:N0}đ)");
+                            result.ImportedProducts.Add(new ImportedProductItemDto
+                            {
+                                Id = existingProduct.Id,
+                                Name = existingProduct.Name,
+                                OriginalUrl = existingProduct.OriginalUrl,
+                                AffiliateUrl = existingProduct.AffiliateUrl,
+                                Price = existingProduct.Price,
+                                ImageUrl = existingProduct.ImageUrl,
+                                Source = existingProduct.Source.ToString()
+                            });
+                        }
+                        else
+                        {
+                            result.TotalSkipped++;
+                            result.Errors.Add($"Sản phẩm '{existingProduct.Name}' (Mã sàn: {existingProduct.ExternalProductId}) đã tồn tại trong kho với giá mới nhất.");
+                        }
+                        continue;
                     }
+
+                    // Nếu trước đó sản phẩm bị từ chối, gỡ bỏ bản ghi cũ để AI thẩm định lại từ đầu với dữ liệu mới
+                    _context.Products.Remove(existingProduct);
+                    await _context.SaveChangesAsync(cancellationToken);
                 }
 
                 var product = new Product(

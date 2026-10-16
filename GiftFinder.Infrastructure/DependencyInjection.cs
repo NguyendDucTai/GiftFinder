@@ -34,6 +34,9 @@ public static class DependencyInjection
         services.AddScoped<IReminderNotificationService, Services.ReminderNotificationService>();
         services.AddHostedService<BackgroundJobs.BirthdayReminderWorker>();
 
+        // Đăng ký Web Scraper Service (Playwright Headless Browser ngầm)
+        services.AddSingleton<IWebScraperService, Scraping.PlaywrightScraperService>();
+
         // Đăng ký Affiliate Network Service (Shopee & TikTok Shop qua Accesstrade)
         services.AddHttpClient<IAffiliateNetworkService, Affiliate.AccesstradeService>(client =>
         {
