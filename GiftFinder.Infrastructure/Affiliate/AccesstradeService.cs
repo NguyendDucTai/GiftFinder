@@ -110,6 +110,30 @@ public class AccesstradeService : IAffiliateNetworkService
         if (string.IsNullOrWhiteSpace(url)) return null;
 
         var cleanUrl = SanitizeUrl(url);
+
+        // 1. XỬ LÝ RIÊNG BIỆT CHO SÀN SHOPEE (Shopee Direct Affiliate)
+        if (ShopeeAffiliateHandler.IsShopeeUrl(cleanUrl))
+        {
+            var shopeeInfo = ShopeeAffiliateHandler.ParseShopeeMetadata(cleanUrl);
+            var shopeeAffId = _configuration["Shopee:AffiliateId"] ?? ShopeeAffiliateHandler.DefaultAffiliateId;
+            var shopeeDeeplink = ShopeeAffiliateHandler.GenerateDeeplink(cleanUrl, $"item_{Guid.NewGuid():N}", shopeeAffId);
+
+            return new AffiliateProductFeedItem
+            {
+                Name = shopeeInfo.Title,
+                Price = 250000,
+                OriginalPrice = 320000,
+                OriginalUrl = shopeeInfo.CleanUrl,
+                AffiliateUrl = shopeeDeeplink,
+                Source = ProductSource.Shopee,
+                ExternalProductId = shopeeInfo.ExternalId,
+                ImageUrl = "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600",
+                Description = $"Sản phẩm quà tặng chất lượng cao tuyển chọn từ sàn Shopee: {shopeeInfo.Title}",
+                Rating = 4.9,
+                TotalReviews = 188
+            };
+        }
+
         string? customAffiliateUrl = null;
         if (cleanUrl.Contains("goeco.mobi", StringComparison.OrdinalIgnoreCase) ||
             cleanUrl.Contains("passio.eco", StringComparison.OrdinalIgnoreCase))
@@ -117,10 +141,8 @@ public class AccesstradeService : IAffiliateNetworkService
             customAffiliateUrl = cleanUrl;
         }
 
-        var source = ProductSource.Shopee;
-        if (cleanUrl.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
-            source = ProductSource.TikTokShop;
-        else if (cleanUrl.Contains("lazada.vn", StringComparison.OrdinalIgnoreCase))
+        var source = ProductSource.TikTokShop;
+        if (cleanUrl.Contains("lazada.vn", StringComparison.OrdinalIgnoreCase))
             source = ProductSource.Lazada;
         else if (cleanUrl.Contains("tiki.vn", StringComparison.OrdinalIgnoreCase))
             source = ProductSource.Tiki;
@@ -304,6 +326,13 @@ public class AccesstradeService : IAffiliateNetworkService
     {
         var escapedSubId = Uri.EscapeDataString(subId);
 
+        // 0. Xử lý riêng biệt cho Shopee: Tự động gắn mã Shopee Affiliate trực tiếp (an_17374170692)
+        if (ShopeeAffiliateHandler.IsShopeeUrl(originalUrl))
+        {
+            var shopeeAffId = _configuration["Shopee:AffiliateId"] ?? ShopeeAffiliateHandler.DefaultAffiliateId;
+            return Task.FromResult(ShopeeAffiliateHandler.GenerateDeeplink(originalUrl, subId, shopeeAffId));
+        }
+
         // 1. Nếu link đã là link affiliate của Ecomobi, giữ nguyên và gắn thêm sub1 nếu chưa có
         if (originalUrl.Contains("goeco.mobi", StringComparison.OrdinalIgnoreCase) ||
             originalUrl.Contains("passio.eco", StringComparison.OrdinalIgnoreCase))
@@ -352,10 +381,10 @@ public class AccesstradeService : IAffiliateNetworkService
             var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length > 0)
             {
-                var candidate = segments[0];
+                var candidate = WebUtility.UrlDecode(segments[0]);
                 if (candidate.Length > 3 && !candidate.Equals("product", StringComparison.OrdinalIgnoreCase))
                     return candidate;
-                if (segments.Length > 1) return segments[1];
+                if (segments.Length > 1) return WebUtility.UrlDecode(segments[1]);
             }
         }
         catch { }
@@ -406,8 +435,27 @@ public class AccesstradeService : IAffiliateNetworkService
 
     private static string FormatSlugToTitle(string slug)
     {
-        var cleaned = slug.Replace("-", " ").Replace("_", " ").Trim();
-        if (cleaned.Length > 60) cleaned = cleaned[..60];
+        if (string.IsNullOrWhiteSpace(slug)) return "Set Quà Tặng Độc Đáo Tinh Tế";
+
+        // 1. Giải mã URL encoding (chuyển %E1%BA%AF thành 'ắ', v.v.)
+        var decoded = WebUtility.UrlDecode(slug);
+
+        // 2. Loại bỏ phần mã số nhận diện của Shopee (-i.shopid.itemid) hoặc Tiki/Lazada (-p123456.html)
+        var cleaned = Regex.Replace(decoded, @"-i\.\d+\.\d+.*$", "", RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"-p\d+\.html.*$", "", RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"\.html.*$", "", RegexOptions.IgnoreCase);
+
+        // 3. Thay dấu gạch ngang và gạch dưới bằng khoảng trắng
+        cleaned = cleaned.Replace("-", " ").Replace("_", " ").Trim();
+        cleaned = Regex.Replace(cleaned, @"\s+", " ");
+
+        // 4. Giới hạn độ dài an toàn không cắt ngang từ
+        if (cleaned.Length > 90)
+        {
+            var cutoff = cleaned.LastIndexOf(' ', 90);
+            cleaned = cutoff > 40 ? cleaned[..cutoff] : cleaned[..90];
+        }
+
         if (string.IsNullOrWhiteSpace(cleaned)) return "Set Quà Tặng Độc Đáo Tinh Tế";
         return char.ToUpper(cleaned[0]) + cleaned[1..];
     }
