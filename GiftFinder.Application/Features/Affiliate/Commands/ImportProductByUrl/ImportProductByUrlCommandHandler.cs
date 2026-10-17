@@ -54,15 +54,39 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
 
         foreach (var url in uniqueUrls)
         {
-
             try
             {
-                // Bóc tách thông tin sản phẩm và tạo affiliate link (hỗ trợ cào giá thật qua Playwright)
+                var cleanUrl = url.Trim();
+
+                // 1. Kiểm tra nhanh trước xem sản phẩm đã có trong kho và đã Approved chưa để không cào lại lãng phí thời gian
+                string? fastExtId = null;
+                var shopeeMatch = Regex.Match(cleanUrl, @"(?:-i\.|/product/|/[^/]+/)(?<shopId>\d+)[/.](?<itemId>\d+)");
+                if (shopeeMatch.Success)
+                {
+                    fastExtId = $"SP_{shopeeMatch.Groups["shopId"].Value}_{shopeeMatch.Groups["itemId"].Value}";
+                }
+
+                var alreadyInDb = await _context.Products
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => 
+                        p.OriginalUrl == cleanUrl || 
+                        p.AffiliateUrl == cleanUrl || 
+                        (!string.IsNullOrEmpty(fastExtId) && p.Source == ProductSource.Shopee && p.ExternalProductId == fastExtId), 
+                        cancellationToken);
+
+                if (!request.ForceRescrape && alreadyInDb != null && alreadyInDb.Status == ProductStatus.Approved && alreadyInDb.Price > 0)
+                {
+                    result.TotalSkipped++;
+                    result.Errors.Add($"Sản phẩm '{alreadyInDb.Name}' đã tồn tại trong kho (Giá: {alreadyInDb.Price:N0}đ), bỏ qua không cào lại.");
+                    continue;
+                }
+
+                // 2. Bóc tách thông tin sản phẩm và tạo affiliate link (hỗ trợ cào giá thật qua Playwright)
                 var item = await _affiliateService.FetchProductByUrlAsync(url, cancellationToken);
-                if (item == null)
+                if (item == null || item.Price <= 0 || string.IsNullOrWhiteSpace(item.Name) || item.Name.Contains("Verify to Continue"))
                 {
                     result.TotalFailed++;
-                    result.Errors.Add($"Không thể trích xuất thông tin từ URL: '{url}'.");
+                    result.Errors.Add($"Không thể trích xuất giá thật hoặc gặp Captcha từ URL: '{url}'.");
                     continue;
                 }
 
@@ -83,7 +107,7 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
                             isUpdated = true;
                         }
 
-                        if (!string.IsNullOrWhiteSpace(item.ImageUrl) && (existingProduct.ImageUrl == null || existingProduct.ImageUrl.Contains("unsplash.com")))
+                        if (!string.IsNullOrWhiteSpace(item.ImageUrl) && (existingProduct.ImageUrl == null || existingProduct.ImageUrl.Contains("unsplash.com") || existingProduct.ImageUrl != item.ImageUrl))
                         {
                             existingProduct.SetImageUrl(item.ImageUrl);
                             isUpdated = true;
@@ -92,24 +116,20 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
                         if (isUpdated)
                         {
                             await _context.SaveChangesAsync(cancellationToken);
-                            result.TotalSuccess++;
-                            result.SuccessProductNames.Add($"{existingProduct.Name} (Cập nhật giá thật: {item.Price:N0}đ)");
-                            result.ImportedProducts.Add(new ImportedProductItemDto
-                            {
-                                Id = existingProduct.Id,
-                                Name = existingProduct.Name,
-                                OriginalUrl = existingProduct.OriginalUrl,
-                                AffiliateUrl = existingProduct.AffiliateUrl,
-                                Price = existingProduct.Price,
-                                ImageUrl = existingProduct.ImageUrl,
-                                Source = existingProduct.Source.ToString()
-                            });
                         }
-                        else
+
+                        result.TotalSuccess++;
+                        result.SuccessProductNames.Add($"{existingProduct.Name} (Giá: {item.Price:N0}đ{(isUpdated ? " - Đã cập nhật" : " - Giá chuẩn")})");
+                        result.ImportedProducts.Add(new ImportedProductItemDto
                         {
-                            result.TotalSkipped++;
-                            result.Errors.Add($"Sản phẩm '{existingProduct.Name}' (Mã sàn: {existingProduct.ExternalProductId}) đã tồn tại trong kho với giá mới nhất.");
-                        }
+                            Id = existingProduct.Id,
+                            Name = existingProduct.Name,
+                            OriginalUrl = existingProduct.OriginalUrl,
+                            AffiliateUrl = existingProduct.AffiliateUrl,
+                            Price = existingProduct.Price,
+                            ImageUrl = existingProduct.ImageUrl,
+                            Source = existingProduct.Source.ToString()
+                        });
                         continue;
                     }
 
@@ -145,48 +165,65 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
 
                 product.SetRating(item.Rating, item.TotalReviews);
 
-                // AI giám định & gán tag tự động
+                // AI giám định & gán tag tự động (có fallback an toàn khi bị rate-limit)
                 if (request.AutoTagWithAi)
                 {
-                    var aiResult = await _aiService.ClassifyAndTagProductAsync(
-                        item.Name, 
-                        item.Description, 
-                        item.Price, 
-                        cancellationToken);
-
-                    if (!aiResult.IsValidGift)
+                    try
                     {
-                        var reason = aiResult.RejectReason ?? "AI đánh giá không phù hợp làm quà tặng";
-                        product.Reject(reason);
-                        _context.Products.Add(product);
-                        result.TotalFailed++;
-                        result.Errors.Add($"{item.Name} -> Bị AI từ chối: {reason}");
-                        continue;
-                    }
+                        var aiResult = await _aiService.ClassifyAndTagProductAsync(
+                            item.Name, 
+                            item.Description, 
+                            item.Price, 
+                            cancellationToken);
 
-                    if (aiResult.SuitableZodiacs.Count > 0)
+                        if (!aiResult.IsValidGift)
+                        {
+                            var reason = aiResult.RejectReason ?? "AI đánh giá không phù hợp làm quà tặng";
+                            product.Reject(reason);
+                            _context.Products.Add(product);
+                            await _context.SaveChangesAsync(cancellationToken);
+                            result.TotalFailed++;
+                            result.Errors.Add($"{item.Name} -> Bị AI từ chối: {reason}");
+                            continue;
+                        }
+
+                        if (aiResult.SuitableZodiacs.Count > 0)
+                        {
+                            product.SetSuitableZodiacs(aiResult.SuitableZodiacs);
+                        }
+
+                        foreach (var occ in aiResult.Occasions)
+                        {
+                            var tag = GetOrCreateTag(existingTags, occ, TagType.Occasion);
+                            product.AddTag(tag.Id);
+                        }
+
+                        foreach (var hob in aiResult.Hobbies)
+                        {
+                            var tag = GetOrCreateTag(existingTags, hob, TagType.Hobby);
+                            product.AddTag(tag.Id);
+                        }
+
+                        product.Approve();
+                    }
+                    catch (Exception aiEx)
                     {
-                        product.SetSuitableZodiacs(aiResult.SuitableZodiacs);
+                        _logger.LogWarning(aiEx, "AI tagging tạm thời bận ({Msg}), gắn tag mặc định theo danh mục.", aiEx.Message);
+                        var defaultTag = GetOrCreateTag(existingTags, "Decor", TagType.Hobby);
+                        product.AddTag(defaultTag.Id);
+                        product.Approve();
                     }
-
-                    foreach (var occ in aiResult.Occasions)
-                    {
-                        var tag = GetOrCreateTag(existingTags, occ, TagType.Occasion);
-                        product.AddTag(tag.Id);
-                    }
-
-                    foreach (var hob in aiResult.Hobbies)
-                    {
-                        var tag = GetOrCreateTag(existingTags, hob, TagType.Hobby);
-                        product.AddTag(tag.Id);
-                    }
-
+                }
+                else
+                {
                     product.Approve();
                 }
 
                 _context.Products.Add(product);
+                await _context.SaveChangesAsync(cancellationToken);
+
                 result.TotalSuccess++;
-                result.SuccessProductNames.Add(product.Name);
+                result.SuccessProductNames.Add($"{product.Name} ({product.Price:N0}đ)");
                 result.ImportedProducts.Add(new ImportedProductItemDto
                 {
                     Id = product.Id,
@@ -205,8 +242,6 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
                 result.Errors.Add($"Lỗi xử lý link '{url}': {ex.Message}");
             }
         }
-
-        await _context.SaveChangesAsync(cancellationToken);
 
         result.Message = $"Nhập thành công {result.TotalSuccess}/{result.TotalRequested} sản phẩm qua URL. (Trùng: {result.TotalSkipped}, Lỗi/Từ chối: {result.TotalFailed})";
         return result;

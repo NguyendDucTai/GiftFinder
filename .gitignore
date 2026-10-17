@@ -366,8 +366,8 @@ scratch/
 extracted_docs.txt
 dotnet-tools.json
 
-.dotnet/
-.dotnet_cli/
+.dotnet*
+.dotnet_cli*
 docx_extracted/
 
 GiftFinder.API/appsettings.Development.json
@@ -375,3 +375,8 @@ GiftFinder.API/appsettings.Development.json
 
 shopee_state.json
 **/shopee_state.json
+
+shopee_links.txt
+start_edge_debug.bat
+GiftFinder_UseCase_Specification.docx
+*.docx

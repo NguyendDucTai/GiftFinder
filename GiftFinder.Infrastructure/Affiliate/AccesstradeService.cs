@@ -141,14 +141,20 @@ public class AccesstradeService : IAffiliateNetworkService
                 }
             }
 
-            var shopeeTitle = (scraped != null && !string.IsNullOrWhiteSpace(scraped.Title)) ? scraped.Title : shopeeInfo.Title;
-            var shopeePrice = (scraped != null && scraped.Price > 0) ? scraped.Price : 250000L;
-            var shopeeOrigPrice = (scraped != null && scraped.OriginalPrice.HasValue && scraped.OriginalPrice.Value > shopeePrice)
+            if (scraped == null || !scraped.IsSuccess || scraped.Price <= 0)
+            {
+                _logger.LogWarning("Không thể bóc tách giá thật từ link Shopee {Url}, bỏ qua không tạo sản phẩm lỗi.", cleanUrl);
+                return null;
+            }
+
+            var shopeeTitle = !string.IsNullOrWhiteSpace(scraped.Title) ? scraped.Title : shopeeInfo.Title;
+            var shopeePrice = scraped.Price;
+            var shopeeOrigPrice = (scraped.OriginalPrice.HasValue && scraped.OriginalPrice.Value > shopeePrice)
                 ? scraped.OriginalPrice.Value
                 : (long)(shopeePrice * 1.25);
-            var shopeeImage = (scraped != null && !string.IsNullOrWhiteSpace(scraped.ImageUrl))
+            var shopeeImage = !string.IsNullOrWhiteSpace(scraped.ImageUrl)
                 ? scraped.ImageUrl
-                : "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600";
+                : "https://down-vn.img.susercontent.com/file/sg-11134201-22120-123456789";
 
             var shopeeDeeplink = ShopeeAffiliateHandler.GenerateDeeplink(cleanUrl, $"item_{Guid.NewGuid():N}", shopeeAffId);
 

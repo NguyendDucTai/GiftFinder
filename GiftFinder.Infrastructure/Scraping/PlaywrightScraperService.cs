@@ -196,12 +196,33 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         {
             if (page != null)
             {
-                try { await page.CloseAsync(); } catch { }
+                try
+                {
+                    // Nếu là Edge CDP và chỉ còn 1 tab duy nhất, không đóng tab vì sẽ tắt luôn Edge!
+                    if (_isConnectedOverCdp && context != null && context.Pages.Count <= 1)
+                    {
+                        await page.GotoAsync("about:blank");
+                    }
+                    else
+                    {
+                        await page.CloseAsync();
+                    }
+                }
+                catch { }
             }
             if (context != null && isCreatedContext && !_isConnectedOverCdp)
             {
                 try { await context.CloseAsync(); } catch { }
             }
+
+            // Nghỉ 5s - 7s sau khi đóng tab để Shopee không kích hoạt rate limit (traffic error)
+            try
+            {
+                var delayMs = Random.Shared.Next(5000, 7000);
+                await Task.Delay(delayMs, cancellationToken);
+            }
+            catch { }
+
             _concurrencyLock.Release();
         }
 
@@ -317,20 +338,70 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         await page.GotoAsync(url, new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
-            Timeout = 15000
+            Timeout = 25000
         });
-        await page.WaitForTimeoutAsync(2500);
+        
+        try
+        {
+            await page.WaitForSelectorAsync(".pdp-price, .pdp-price_color_orange, [class*='pdp-price'], span[class*='price']", new PageWaitForSelectorOptions
+            {
+                Timeout = 5000
+            });
+        }
+        catch { }
+
+        // Kiểm tra xem có bị Captcha / Verify của Lazada không
+        var lazTitle = "";
+        try { lazTitle = await page.TitleAsync(); } catch { }
+        bool isLazCaptcha = page.Url.Contains("punish") ||
+                            page.Url.Contains("captcha") ||
+                            lazTitle.Contains("Security", StringComparison.OrdinalIgnoreCase) ||
+                            lazTitle.Contains("Verification", StringComparison.OrdinalIgnoreCase);
+
+        if (isLazCaptcha && _isConnectedOverCdp)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                try { Console.Beep(1000, 500); } catch { }
+            }
+            Console.WriteLine("\n=========================================================================================");
+            Console.WriteLine($"🔔 [CẦN XÁC MINH CAPTCHA LAZADA: \"{lazTitle}\"]");
+            Console.WriteLine("👉 Vui lòng nhìn vào cửa sổ Microsoft Edge và KÉO XÁC MINH TRÊN MÀN HÌNH!");
+            Console.WriteLine("⏳ Hệ thống đang TẠM DỪNG chờ bạn hoàn tất xác minh (tối đa 90 giây)...");
+            Console.WriteLine("=========================================================================================\n");
+
+            var startWait = DateTime.UtcNow;
+            while ((DateTime.UtcNow - startWait).TotalSeconds < 90 && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1500, cancellationToken);
+                try
+                {
+                    var curTitle = await page.TitleAsync();
+                    if (!page.Url.Contains("punish") && !curTitle.Contains("Verification"))
+                    {
+                        var pEl = await page.WaitForSelectorAsync(".pdp-price, [class*='pdp-price']", new PageWaitForSelectorOptions { Timeout = 5000 });
+                        if (pEl != null)
+                        {
+                            Console.WriteLine("🎉 [XÁC MINH THÀNH CÔNG] Đã vượt qua Captcha Lazada! Tiếp tục lấy dữ liệu...");
+                            break;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
 
         var jsonStr = await page.EvaluateAsync<string>(@"() => {
-            const titleEl = document.querySelector('meta[property=""og:title""]') || document.querySelector('h1.pdp-mod-product-badge-title') || document.querySelector('title');
+            const titleEl = document.querySelector('meta[property=""og:title""]') || document.querySelector('h1.pdp-mod-product-badge-title') || document.querySelector('h1') || document.querySelector('title');
             let title = titleEl ? (titleEl.content || titleEl.innerText || '') : '';
             title = title.replace(/\s*\|\s*Lazada.*$/i, '').trim();
 
-            const imgEl = document.querySelector('meta[property=""og:image""]') || document.querySelector('img.pdp-mod-common-image');
+            const imgEl = document.querySelector('meta[property=""og:image""]') || document.querySelector('img.pdp-mod-common-image') || document.querySelector('.gallery-preview-panel__image');
             const img = imgEl ? (imgEl.content || imgEl.src || '') : '';
 
             let priceText = '';
-            const priceEl = document.querySelector('.pdp-price') || 
+            const priceEl = document.querySelector('.pdp-price_color_orange') ||
+                            document.querySelector('.pdp-price') || 
                             document.querySelector('.pdp-vsl-price') || 
                             document.querySelector('[class*=""pdp-price""]') ||
                             document.querySelector('span[class*=""price""]');
@@ -342,11 +413,28 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                            document.querySelector('span[class*=""deleted""]');
             if (origEl) origPriceText = origEl.innerText || '';
 
+            const matches = [];
+            if (!priceText) {
+                const elements = document.querySelectorAll('span, div, p');
+                for (const el of elements) {
+                    if (el.children.length === 0) {
+                        const txt = (el.innerText || '').trim();
+                        if (/\d{1,3}(\.\d{3})+/.test(txt)) {
+                            const isIgnored = el.closest('[class*=""voucher""], [class*=""shipping""], [class*=""delivery""], [class*=""badge""], [class*=""popover""]');
+                            if (!isIgnored && !txt.includes('đánh giá') && !txt.includes('bán') && !txt.includes('Phí') && !txt.includes('VND')) {
+                                matches.push(txt);
+                            }
+                        }
+                    }
+                }
+            }
+
             return JSON.stringify({
                 title: title,
                 imageUrl: img,
                 price: priceText,
-                origPrice: origPriceText
+                origPrice: origPriceText,
+                matches: matches
             });
         }");
 
@@ -362,6 +450,21 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             if (long.TryParse(numP, out var p) && p >= 1000 && p < 100_000_000)
             {
                 result.Price = p;
+            }
+            else if (root.TryGetProperty("matches", out var mArr) && mArr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in mArr.EnumerateArray())
+                {
+                    var rawM = item.GetString() ?? "";
+                    var numM = Regex.Replace(rawM, @"[^\d]", "");
+                    if (long.TryParse(numM, out var mp) && mp >= 10000 && mp < 100_000_000)
+                    {
+                        if (result.Price == 0 || mp < result.Price)
+                        {
+                            result.Price = mp;
+                        }
+                    }
+                }
             }
 
             var rawOp = root.GetProperty("origPrice").GetString() ?? "";
@@ -388,11 +491,52 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         await page.GotoAsync(url, new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
-            Timeout = 12000
+            Timeout = 15000
         });
 
         // Đợi 2.5s để React mount các component giá
         await page.WaitForTimeoutAsync(2500);
+
+        // Kiểm tra xem có bị Security Check / Captcha không
+        var checkTitle = "";
+        try { checkTitle = await page.TitleAsync(); } catch { }
+        bool isSecurityCheck = page.Url.Contains("verify") ||
+                               page.Url.Contains("security") ||
+                               checkTitle.Contains("Security Check", StringComparison.OrdinalIgnoreCase) ||
+                               checkTitle.Contains("Verify", StringComparison.OrdinalIgnoreCase);
+
+        if (isSecurityCheck && _isConnectedOverCdp)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                try { Console.Beep(1000, 500); } catch { }
+            }
+            Console.WriteLine("\n=========================================================================================");
+            Console.WriteLine($"🔔 [CẦN XÁC MINH SECURITY CHECK TIKTOK SHOP]");
+            Console.WriteLine("👉 Vui lòng nhìn vào cửa sổ Microsoft Edge và KÉO XÁC MINH TRÊN MÀN HÌNH!");
+            Console.WriteLine("⏳ Hệ thống đang TẠM DỪNG chờ bạn hoàn tất xác minh (tối đa 90 giây)...");
+            Console.WriteLine("=========================================================================================\n");
+
+            var startWait = DateTime.UtcNow;
+            while ((DateTime.UtcNow - startWait).TotalSeconds < 90 && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1500, cancellationToken);
+                try
+                {
+                    var curTitle = await page.TitleAsync();
+                    if (!curTitle.Contains("Security Check", StringComparison.OrdinalIgnoreCase) && 
+                        !curTitle.Contains("Verify", StringComparison.OrdinalIgnoreCase) &&
+                        !page.Url.Contains("verify") && 
+                        !page.Url.Contains("security"))
+                    {
+                        Console.WriteLine("🎉 [XÁC MINH THÀNH CÔNG] Đã vượt qua Security Check trên Edge! Tiếp tục lấy dữ liệu...");
+                        await page.WaitForTimeoutAsync(3000);
+                        break;
+                    }
+                }
+                catch { }
+            }
+        }
 
         // 2. Trích xuất dữ liệu giá và thông tin sản phẩm từ DOM
         var jsonStr = await page.EvaluateAsync<string>(@"() => {
@@ -496,9 +640,83 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         await page.GotoAsync(targetUrl, new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
-            Timeout = 18000
+            Timeout = 25000
         });
-        await page.WaitForTimeoutAsync(3000);
+
+        // Đợi phần tử giá xuất hiện (trả về ngay khi React mount giá xong, khoảng 2.7s)
+        try
+        {
+            await page.WaitForSelectorAsync(".pyzxvq, .pw3J3G, .PcnXj1, .pmmxKx, .G27ShZ", new PageWaitForSelectorOptions
+            {
+                Timeout = 5000
+            });
+        }
+        catch { }
+
+        // Kiểm tra xem có gặp Captcha / Trang xác minh của Shopee không
+        var pageTitle = "";
+        try { pageTitle = await page.TitleAsync(); } catch { }
+
+        bool isCaptcha = page.Url.Contains("/verify") ||
+                         page.Url.Contains("captcha") ||
+                         pageTitle.Contains("Verify", StringComparison.OrdinalIgnoreCase) ||
+                         pageTitle.Contains("Xác minh", StringComparison.OrdinalIgnoreCase) ||
+                         pageTitle.Contains("Robot", StringComparison.OrdinalIgnoreCase);
+
+        if (!isCaptcha)
+        {
+            try
+            {
+                var captchaEl = await page.QuerySelectorAsync("iframe[src*='captcha'], div[class*='captcha'], div[class*='verify']");
+                if (captchaEl != null) isCaptcha = true;
+            }
+            catch { }
+        }
+
+        if (isCaptcha && _isConnectedOverCdp)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                try { Console.Beep(1000, 500); } catch { }
+            }
+            Console.WriteLine("\n=========================================================================================");
+            Console.WriteLine($"🔔 [CẦN XÁC MINH CAPTCHA SHOPEE: \"{pageTitle}\"]");
+            Console.WriteLine("👉 Vui lòng nhìn vào cửa sổ Microsoft Edge và KÉO MẢNH GHÉP / XÁC MINH TRÊN MÀN HÌNH!");
+            Console.WriteLine("⏳ Hệ thống đang TẠM DỪNG chờ bạn hoàn tất xác minh (tối đa 90 giây)...");
+            Console.WriteLine("=========================================================================================\n");
+
+            _logger.LogWarning("🔔 [CẦN XÁC MINH CAPTCHA TRÊN EDGE] Shopee yêu cầu xác minh ('{Title}')! Đang tạm dừng chờ bạn thao tác trên Edge tối đa 90 giây...", pageTitle);
+
+            var startWait = DateTime.UtcNow;
+            while ((DateTime.UtcNow - startWait).TotalSeconds < 90 && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1500, cancellationToken);
+
+                try
+                {
+                    var currentTitle = await page.TitleAsync();
+                    var currentUrl = page.Url;
+                    if (!currentUrl.Contains("/verify") && 
+                        !currentUrl.Contains("captcha") && 
+                        !currentTitle.Contains("Verify", StringComparison.OrdinalIgnoreCase) &&
+                        !currentTitle.Contains("Xác minh", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var priceEl = await page.WaitForSelectorAsync(".pyzxvq, .pw3J3G, .PcnXj1, .pmmxKx, .G27ShZ", new PageWaitForSelectorOptions
+                        {
+                            Timeout = 8000
+                        });
+
+                        if (priceEl != null)
+                        {
+                            Console.WriteLine("🎉 [XÁC MINH THÀNH CÔNG] Đã phát hiện trang sản phẩm hợp lệ! Tiếp tục cào dữ liệu...");
+                            _logger.LogInformation("🎉 [XÁC MINH THÀNH CÔNG] Đã vượt qua Captcha trên Edge! Tiếp tục bóc tách dữ liệu...");
+                            break;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
 
         if (page.Url.Contains("verify/traffic/error"))
         {
@@ -523,10 +741,13 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                             document.querySelector('.PcnXj1') || 
                             document.querySelector('.pmmxKx') || 
                             document.querySelector('.G27ShZ') || 
-                            document.querySelector('div[class*=""items-center""] > div[class*=""text-""]') ||
-                            document.querySelector('div[class*=""price""]') ||
-                            document.querySelector('span[class*=""price""]');
-            if (priceEl) priceText = priceEl.innerText || '';
+                            document.querySelector('div[class*=""items-center""] > div[class*=""text-""]');
+            if (priceEl) {
+                const t = (priceEl.innerText || '').trim();
+                if (/\d/.test(t)) {
+                    priceText = t;
+                }
+            }
 
             const matches = [];
             if (!priceText) {
@@ -534,7 +755,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 for (const el of elements) {
                     if (el.children.length === 0) {
                         const txt = (el.innerText || '').trim();
-                        if (/^\s*₫?\s*\d{1,3}(\.\d{3})+/.test(txt)) {
+                        if (/\d{1,3}(\.\d{3})+/.test(txt)) {
                             const isIgnored = el.closest('[class*=""voucher""], [class*=""shipping""], [class*=""delivery""], [class*=""badge""], [class*=""popover""], .BudQxb, .EBSK_9');
                             if (!isIgnored && !txt.includes('đánh giá') && !txt.includes('bán') && !txt.includes('Phí') && !txt.includes('VND')) {
                                 matches.push(txt);

@@ -195,10 +195,25 @@ if (args.Contains("--sync-prices"))
 {
     using var scope = app.Services.CreateScope();
     var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+    GiftFinder.Domain.Enums.ProductSource? filterSource = null;
+    if (args.Contains("--source"))
+    {
+        var sIdx = Array.IndexOf(args, "--source");
+        if (sIdx + 1 < args.Length && Enum.TryParse<GiftFinder.Domain.Enums.ProductSource>(args[sIdx + 1], true, out var parsedSource))
+        {
+            filterSource = parsedSource;
+        }
+    }
+
     Console.WriteLine("=============================================================");
-    Console.WriteLine(" BẮT ĐẦU ĐỒNG BỘ GIÁ TỰ ĐỘNG CHO TOÀN BỘ SẢN PHẨM TRONG DATABASE ");
+    Console.WriteLine($" BẮT ĐẦU ĐỒNG BỘ GIÁ TỰ ĐỘNG {(filterSource.HasValue ? $"CHO NGUỒN [{filterSource}]" : "CHO TOÀN BỘ SẢN PHẨM")} TRONG DATABASE ");
     Console.WriteLine("=============================================================\n");
-    var res = await mediator.Send(new GiftFinder.Application.Features.Products.Commands.SyncAllProductPrices.SyncAllProductPricesCommand());
+    var res = await mediator.Send(new GiftFinder.Application.Features.Products.Commands.SyncAllProductPrices.SyncAllProductPricesCommand
+    {
+        Source = filterSource,
+        ForceUpdateImages = true
+    });
     Console.WriteLine("\n=============================================================");
     Console.WriteLine($" KẾT QUẢ ĐỒNG BỘ GIÁ HOÀN TẤT (Thời gian: {res.DurationSeconds}s)");
     Console.WriteLine("=============================================================");
@@ -220,6 +235,66 @@ if (args.Contains("--sync-prices"))
             Console.WriteLine($"       Ảnh: {(d.ImageUrl.Length > 80 ? d.ImageUrl[..80] + "..." : d.ImageUrl)}");
         }
         Console.WriteLine();
+    }
+    return;
+}
+
+if (args.Contains("--import-file"))
+{
+    var fileIdx = Array.IndexOf(args, "--import-file");
+    var filePath = fileIdx + 1 < args.Length && !args[fileIdx + 1].StartsWith("--") ? args[fileIdx + 1] : "shopee_links.txt";
+    if (!File.Exists(filePath))
+    {
+        Console.WriteLine($"\n[LỖI] Không tìm thấy file: {filePath}\n");
+        return;
+    }
+
+    var lines = await File.ReadAllLinesAsync(filePath);
+    var urls = lines.Where(l => !string.IsNullOrWhiteSpace(l) && (l.Contains("shopee.vn") || l.Contains("tiktok.com") || l.Contains("lazada.vn")))
+                    .Select(l => l.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+    Console.WriteLine("=============================================================");
+    Console.WriteLine($" BẮT ĐẦU NHẬP HÀNG LOẠT {urls.Count} SẢN PHẨM TỪ FILE: {filePath}");
+    Console.WriteLine("=============================================================\n");
+
+    using var scope = app.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+    var res = await mediator.Send(new GiftFinder.Application.Features.Affiliate.Commands.ImportProductByUrl.ImportProductByUrlCommand
+    {
+        Urls = urls,
+        AutoTagWithAi = true,
+        ForceRescrape = args.Contains("--force")
+    });
+
+    Console.WriteLine("\n=============================================================");
+    Console.WriteLine(" KẾT QUẢ NHẬP SẢN PHẨM HOÀN TẤT");
+    Console.WriteLine("=============================================================");
+    Console.WriteLine($" Tổng số link yêu cầu          : {res.TotalRequested}");
+    Console.WriteLine($" Số sản phẩm thêm mới/cập nhật : {res.TotalSuccess}");
+    Console.WriteLine($" Số sản phẩm đã có (bỏ qua)    : {res.TotalSkipped}");
+    Console.WriteLine($" Số sản phẩm lỗi/không bóc tách: {res.TotalFailed}\n");
+
+    if (res.SuccessProductNames.Count > 0)
+    {
+        Console.WriteLine("DANH SÁCH SẢN PHẨM ĐÃ THÊM THÀNH CÔNG:");
+        int sIdx = 1;
+        foreach (var name in res.SuccessProductNames)
+        {
+            Console.WriteLine($"  [{sIdx++}] {name}");
+        }
+        Console.WriteLine();
+    }
+
+    if (res.Errors.Count > 0)
+    {
+        Console.WriteLine("CHI TIẾT BỎ QUA / LỖI:");
+        foreach (var err in res.Errors)
+        {
+            Console.WriteLine($"  - {err}");
+        }
     }
     return;
 }

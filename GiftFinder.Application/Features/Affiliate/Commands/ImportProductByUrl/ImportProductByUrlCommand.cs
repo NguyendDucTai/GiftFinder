@@ -13,6 +13,11 @@ public class ImportProductByUrlCommand : IRequest<ImportProductByUrlResultDto>
     /// Tự động chạy Groq AI giám định và gắn Tag Dịp, Sở thích, Cung hoàng đạo
     /// </summary>
     public bool AutoTagWithAi { get; set; } = true;
+
+    /// <summary>
+    /// Cào lại dữ liệu kể cả khi sản phẩm đã tồn tại trong database (để cập nhật giá/thông tin mới)
+    /// </summary>
+    public bool ForceRescrape { get; set; } = false;
 }
 
 public class ImportProductByUrlResultDto
