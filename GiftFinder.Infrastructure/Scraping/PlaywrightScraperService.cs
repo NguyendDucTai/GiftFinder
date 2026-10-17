@@ -588,13 +588,24 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
     {
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(800));
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(2000));
             var url = endpoint.TrimEnd('/') + "/json/version";
             using var resp = await _httpClient.GetAsync(url, cts.Token);
             return resp.IsSuccessStatusCode;
         }
         catch
         {
+            if (endpoint.Contains("localhost"))
+            {
+                try
+                {
+                    using var cts2 = new CancellationTokenSource(TimeSpan.FromMilliseconds(1500));
+                    var fallbackUrl = endpoint.Replace("localhost", "127.0.0.1").TrimEnd('/') + "/json/version";
+                    using var resp2 = await _httpClient.GetAsync(fallbackUrl, cts2.Token);
+                    return resp2.IsSuccessStatusCode;
+                }
+                catch { }
+            }
             return false;
         }
     }
@@ -611,7 +622,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             _playwright ??= await Playwright.CreateAsync();
 
             // 1. Thử kết nối tới Microsoft Edge thật qua CDP (Port 9222) nếu đang bật
-            var cdpUrl = _configuration?["Scraper:CdpEndpoint"] ?? "http://localhost:9222";
+            var cdpUrl = _configuration?["Scraper:CdpEndpoint"] ?? "http://127.0.0.1:9222";
             if (await IsCdpRunningAsync(cdpUrl))
             {
                 try
@@ -626,6 +637,10 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                     _logger.LogWarning("Không thể kết nối qua CDP ({Msg}), chuyển sang trình duyệt headless.", ex.Message);
                     _isConnectedOverCdp = false;
                 }
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ Không phát hiện Microsoft Edge Debug đang mở tại {Url}. Hệ thống chuyển sang Chromium headless dự phòng.", cdpUrl);
             }
 
             // 2. Fallback về Chromium Headless ngầm

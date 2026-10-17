@@ -29,8 +29,8 @@ echo.
 start "" "%EDGE_EXE%" --remote-debugging-port=9222 --remote-allow-origins=* --user-data-dir="%DEBUG_DIR%" https://shopee.vn
 
 echo =============================================================
-echo -> MICROSOFT EDGE DEBUG DANG CHAY TAI PORT 9222!
-echo -> Ban co the giu cua so nay mo va chay:
+echo [*] MICROSOFT EDGE DEBUG DANG CHAY TAI PORT 9222!
+echo [*] Ban co the giu cua so nay mo va chay:
 echo       dotnet run --project GiftFinder.API --sync-prices
 echo    he thong se tu dong cao gia that qua Edge ma khong bi chan WAF!
 echo =============================================================
