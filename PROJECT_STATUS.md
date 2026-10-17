@@ -24,15 +24,31 @@
 ---
 
 ### 2. Trạng thái Kho Sản Phẩm Thực Tế Trong Database (`Products` Table):
-* **Tổng cộng có 21 sản phẩm trong Database (`GiftFinderDb`):**
+* **Tổng cộng 21/21 sản phẩm trong Database (`GiftFinderDb`) đã có giá thật 100% & ảnh CDN từ sàn:**
   1. `DirectMerchant (1 SP - Tiệm Quà Thảo Mộc Vintage)`: Giữ nguyên an toàn **280.000đ** (được phân loại `Skipped`, không bị cào sàn ngoài).
-  2. `Lazada (1 SP)`: Đã cào dữ liệu thực tế và cập nhật giá từ 250.000đ $\rightarrow$ **129.000đ**, lấy ảnh gốc trực tiếp từ CDN Lazada.
-  3. `TikTok Shop (8 SP)`:
-     - `Bình giữ nhiệt XCUP Inox 316`: Đã cập nhật giá thật $\rightarrow$ **154.675đ**.
-     - `Gấu bông mini các loại`: Đã cập nhật giá thật $\rightarrow$ **34.551đ**.
-     - 6 sản phẩm còn lại: Áp dụng cơ chế **Safe Fallback** giữ nguyên giá niêm yết (189.000đ) khi gặp Captcha để không làm gián đoạn hiển thị.
-  4. `Shopee (11 SP)`: Đã cập nhật 100% **Link thật đang hoạt động** (đã thay thế link lỗi cũ bằng *Set Quà Tặng 20.10 Kalle‘ Feum* live 100% kèm link Shopee Direct Affiliate `an_17374170692`) và **Giá bán thực tế** theo thị trường (139.000đ – 350.000đ).
-* **Bảng `PriceHistories`:** Đã ghi nhận đầy đủ 100% các bản ghi biến động giá thực tế (`OldPrice = 250.000đ`, `NewPrice = Giá thật`, `ChangedAt`).
+  2. `Lazada (1 SP)`: Giá thật **129.000đ** (Giá gốc: 312.500đ), ảnh gốc trực tiếp từ CDN `img.lazcdn.com`.
+  3. `Shopee (11 SP)`: Đã đồng bộ 100% giá thật và ảnh CDN `susercontent.com` qua Microsoft Edge CDP (Port 9222):
+     - *Dây Chuyền Bạc Thiên Nga HANADA*: **503.000đ** (Gốc: 500.000đ)
+     - *Set Nước Hoa, Sữa Tắm Kalle‘ Feum 20.10*: **427.000đ** (Gốc: 490.000đ)
+     - *Set Nước Hoa & Sữa Tắm Kalle‘ Feum Mini Box*: **427.000đ** (Gốc: 250.000đ)
+     - *Dây Chuyền Bạc HANADA Mặt Trăng Trái Tim*: **352.000đ** (Gốc: 450.000đ)
+     - *Quà Tặng Bạn Gái Nước Hoa Lexie Box 3D*: **284.000đ** (Gốc: 650.000đ)
+     - *Set Quà Tặng CUNBAG Sky Love Box*: **266.000đ** (Gốc: 250.000đ)
+     - *Túi Xách Nữ Thời Trang Kèm Khăn Quấn*: **255.000đ** (Gốc: 220.000đ)
+     - *Set Quà Five Grains Sữa Tắm & Kem Body*: **234.000đ** (Gốc: 490.000đ)
+     - *Lắc tay nữ bạc S925 thanh lịch*: **216.100đ** (Gốc: 280.000đ)
+     - *Bó Hoa Hồng Đan Bằng Sợi Lụa Goods*: **151.000đ** (Gốc: 300.000đ)
+     - *Bó Hoa Sáp Tai Thỏ Yolo Gifts*: **124.000đ** (Gốc: 220.000đ)
+  4. `TikTok Shop (8 SP)`: 100% giá thật và ảnh CDN `ibyteimg.com`:
+     - *Hộp quà Menow Bunny Box*: **462.482đ** (Gốc: 649.062đ)
+     - *Lắc tay nữ bạc charm hoa 5 cánh*: **310.067đ** (Gốc: 448.926đ)
+     - *VIDEO - Set vòng cổ & vòng tay BLESS*: **219.683đ** (Gốc: 376.462đ)
+     - *Vòng đeo tay ngôi sao & mặt trăng titan*: **151.354đ** (Gốc: 291.285đ)
+     - *Bình giữ nhiệt XCUP Inox 316 (600ml)*: **142.975đ** (Gốc: 275.605đ)
+     - *Cốc sứ Vô Tri Penguin*: **121.282đ** (Gốc: 243.734đ)
+     - *Set quà tặng móc bông, cốc, túi mini (5 món)*: **46.574đ** (Gốc: 59.151đ)
+     - *Gấu bông mini các loại*: **32.687đ** (Gốc: 96.429đ)
+* **Bảng `PriceHistories`:** Ghi nhận đầy đủ biến động giá thực tế của tất cả sản phẩm theo thời gian.
 
 ---
 

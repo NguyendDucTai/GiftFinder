@@ -175,8 +175,16 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             }
 
             result.FinalUrl = page.Url;
-            _logger.LogInformation("Playwright cào dữ liệu thành công từ {Url}: Tên='{Title}', Giá={Price:N0}đ", 
-                url, result.Title, result.Price);
+            if (result.IsSuccess && result.Price > 0)
+            {
+                _logger.LogInformation("Playwright cào dữ liệu thành công từ {Url}: Tên='{Title}', Giá={Price:N0}đ", 
+                    url, result.Title, result.Price);
+            }
+            else
+            {
+                _logger.LogWarning("Playwright không lấy được giá từ {Url} (Trang bị chặn hoặc cần Captcha). Tên='{Title}', Giá={Price:N0}đ", 
+                    url, result.Title, result.Price);
+            }
         }
         catch (Exception ex)
         {
@@ -478,10 +486,17 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
     private async Task<ScrapedProductData> ScrapeShopeeBrowserAsync(IPage page, string url, CancellationToken cancellationToken)
     {
         var result = new ScrapedProductData();
-        await page.GotoAsync(url, new PageGotoOptions
+        var targetUrl = url;
+        var idMatch = Regex.Match(url, @"(?:-i\.|/product/|/[^/]+/)(?<shopId>\d+)[/.](?<itemId>\d+)");
+        if (idMatch.Success && url.Contains("__mobile__"))
+        {
+            targetUrl = $"https://shopee.vn/product/{idMatch.Groups["shopId"].Value}/{idMatch.Groups["itemId"].Value}";
+        }
+
+        await page.GotoAsync(targetUrl, new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
-            Timeout = 15000
+            Timeout = 18000
         });
         await page.WaitForTimeoutAsync(3000);
 
@@ -502,7 +517,11 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             const img = imgEl ? (imgEl.content || imgEl.src || '') : '';
 
             let priceText = '';
-            const priceEl = document.querySelector('.pmmxKx') || 
+            // Các class giá hiển thị chính thức của Shopee
+            const priceEl = document.querySelector('.pyzxvq') || 
+                            document.querySelector('.pw3J3G') || 
+                            document.querySelector('.PcnXj1') || 
+                            document.querySelector('.pmmxKx') || 
                             document.querySelector('.G27ShZ') || 
                             document.querySelector('div[class*=""items-center""] > div[class*=""text-""]') ||
                             document.querySelector('div[class*=""price""]') ||
@@ -510,12 +529,17 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             if (priceEl) priceText = priceEl.innerText || '';
 
             const matches = [];
-            const elements = document.querySelectorAll('div, span');
-            for (const el of elements) {
-                if (el.children.length === 0) {
-                    const txt = (el.innerText || '').trim();
-                    if (/^\s*₫?\s*\d{1,3}(\.\d{3})+/.test(txt) && !txt.includes('đánh giá') && !txt.includes('bán') && !txt.includes('Phí') && !txt.includes('VND')) {
-                        matches.push(txt);
+            if (!priceText) {
+                const elements = document.querySelectorAll('div, span');
+                for (const el of elements) {
+                    if (el.children.length === 0) {
+                        const txt = (el.innerText || '').trim();
+                        if (/^\s*₫?\s*\d{1,3}(\.\d{3})+/.test(txt)) {
+                            const isIgnored = el.closest('[class*=""voucher""], [class*=""shipping""], [class*=""delivery""], [class*=""badge""], [class*=""popover""], .BudQxb, .EBSK_9');
+                            if (!isIgnored && !txt.includes('đánh giá') && !txt.includes('bán') && !txt.includes('Phí') && !txt.includes('VND')) {
+                                matches.push(txt);
+                            }
+                        }
                     }
                 }
             }
@@ -553,7 +577,8 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 {
                     var rawMatch = item.GetString() ?? "";
                     var matchNum = Regex.Replace(rawMatch, @"[^\d]", "");
-                    if (long.TryParse(matchNum, out var sp) && sp >= 1000 && sp < 100_000_000)
+                    // Bỏ qua giá nhỏ hơn 25.000đ để tránh ăn phải voucher / phí ship 15k
+                    if (long.TryParse(matchNum, out var sp) && sp >= 25000 && sp < 100_000_000)
                     {
                         if (foundPrice == 0 || sp < foundPrice)
                         {
