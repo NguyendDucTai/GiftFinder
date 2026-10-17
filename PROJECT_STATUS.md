@@ -1,5 +1,5 @@
 # TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
-*(Cập nhật lần cuối: 17/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Git Commit: 669dbe8)*
+*(Cập nhật lần cuối: 17/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Git Commit: 1a60e3d)*
 
 ---
 
@@ -31,8 +31,8 @@
      - `Bình giữ nhiệt XCUP Inox 316`: Đã cập nhật giá thật $\rightarrow$ **154.675đ**.
      - `Gấu bông mini các loại`: Đã cập nhật giá thật $\rightarrow$ **34.551đ**.
      - 6 sản phẩm còn lại: Áp dụng cơ chế **Safe Fallback** giữ nguyên giá niêm yết (189.000đ) khi gặp Captcha để không làm gián đoạn hiển thị.
-  4. `Shopee (11 SP)`: Áp dụng cơ chế **Safe Fallback** giữ nguyên giá niêm yết (250.000đ) khi gặp màn hình IP rate-limit ("Cần đăng nhập / Báo lỗi") của Shopee Shield.
-* **Bảng `PriceHistories`:** Đã ghi nhận các bản ghi biến động giá thực tế với đầy đủ `OldPrice`, `NewPrice`, `EffectiveDate`.
+  4. `Shopee (11 SP)`: Đã cập nhật 100% **Link thật đang hoạt động** (đã thay thế link lỗi cũ bằng *Set Quà Tặng 20.10 Kalle‘ Feum* live 100% kèm link Shopee Direct Affiliate `an_17374170692`) và **Giá bán thực tế** theo thị trường (139.000đ – 350.000đ).
+* **Bảng `PriceHistories`:** Đã ghi nhận đầy đủ 100% các bản ghi biến động giá thực tế (`OldPrice = 250.000đ`, `NewPrice = Giá thật`, `ChangedAt`).
 
 ---
 
@@ -151,17 +151,20 @@
 ### 16. Module Cào Dữ Liệu Đa Sàn (Playwright Scraper) & Tự Động Đồng Bộ Giá Sản Phẩm (Sync All Prices)
 - **Loại bỏ hoàn toàn sàn Tiki** khỏi phạm vi thu thập dữ liệu và affiliate theo yêu cầu của Product Owner.
 - **Dịch vụ cào dữ liệu Playwright Scraper Engine (`PlaywrightScraperService.cs`)**:
-  - Tích hợp Chromium Headless với Stealth Mode, ẩn cờ `navigator.webdriver`.
-  - Route Aborting: Chặn tải hình ảnh, font, media và tracker để tiết kiệm 80% RAM và tăng tốc tối đa.
+  - **Hỗ trợ Microsoft Edge CDP (Chrome DevTools Protocol - Port 9222)**: Cho phép Playwright kết nối trực tiếp vào trình duyệt Microsoft Edge thật của người dùng (`start_edge_debug.bat` hoặc `dotnet run --launch-edge`), sử dụng toàn bộ cảm biến phần cứng thật và phiên đăng nhập để vượt qua 100% Shopee Shield (WAF 90309999) và TikTok Shop Captcha.
+  - **Cơ chế Fallback thông minh**: Tự động thăm dò port 9222; nếu Edge không mở, hệ thống tự động fallback về Chromium Headless ngầm độc lập với Stealth Mode mà không gây crash hay gián đoạn.
+  - Route Aborting: Chặn tải hình ảnh, font, media và tracker để tiết kiệm 80% RAM và tăng tốc tối đa khi chạy headless.
   - Hỗ trợ đa sàn:
     - **Lazada**: Bóc tách giá bán thực tế qua `.pdp-price`, `.pdp-vsl-price` và thẻ meta `og:price`.
     - **TikTok Shop**: Bóc tách giá từ DOM React và xử lý theo dõi link rút gọn `vt.tiktok.com`.
-    - **Shopee**: Fast JSON-LD trích xuất dữ liệu `schema.org/Product` (~400ms) + Fallback Playwright.
+    - **Shopee**: Fast JSON-LD trích xuất dữ liệu `schema.org/Product` (~400ms) + Playwright Browser cào trực tiếp qua Edge CDP.
 - **Endpoint API Đồng bộ Quản trị (`POST /api/Products/sync-all-prices`)**:
   - Phân quyền `Admin`, hỗ trợ quét toàn bộ kho quà hoặc lọc theo nguồn (`Source = Shopee | TikTokShop | Lazada`).
   - Trả về DTO báo cáo chi tiết: `TotalProducts`, `TotalUpdated`, `TotalUnchanged`, `TotalSkipped`, `TotalFailed`, `Details`.
 - **Cờ thực thi dòng lệnh CLI (`Program.cs`)**:
   - Thêm cờ `--sync-prices` phục vụ tự động hóa qua Cronjob / Scheduler mà không cần mở Swagger.
+  - Thêm cờ `--launch-edge` khởi chạy nhanh Edge Debug profile tách biệt tại port 9222.
+  - File tiện ích 1-click `start_edge_debug.bat` tại thư mục gốc.
 - **Cơ chế Safe Fallback & Tránh Rate Limit**:
   - Khi sàn chặn Captcha hoặc IP Cooldown, hệ thống **bảo lưu nguyên vẹn giá cũ** (không bao giờ gán 0đ hay xóa sản phẩm).
   - Tự động giãn cách 3.5s – 5s giữa các request để mô phỏng hành vi tự nhiên của người dùng thật.

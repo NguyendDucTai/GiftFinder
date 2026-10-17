@@ -372,3 +372,6 @@ docx_extracted/
 
 GiftFinder.API/appsettings.Development.json
 **/appsettings.Development.json
+
+shopee_state.json
+**/shopee_state.json

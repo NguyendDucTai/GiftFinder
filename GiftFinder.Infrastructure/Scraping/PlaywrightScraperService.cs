@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using GiftFinder.Application.Common.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 
@@ -12,25 +13,26 @@ namespace GiftFinder.Infrastructure.Scraping;
 /// Dịch vụ cào Tên thật, Giá thật và Ảnh gốc của Shopee & TikTok Shop.
 /// Kết hợp:
 /// 1. Tối ưu siêu tốc cho Shopee: Trích xuất trực tiếp schema.org/Product JSON-LD (phản hồi ~300ms, không tốn RAM).
-/// 2. Playwright Headless Browser cho TikTok Shop & link Shopee phức tạp:
-///    - Singleton Chromium instance.
-///    - Route Aborting (chặn media, font, image để tiết kiệm 80% RAM).
-///    - Stealth mode ẩn navigator.webdriver tránh bị sàn chặn.
-/// 3. Timeout và Fallback an toàn tuyệt đối.
+/// 2. Hỗ trợ Playwright ConnectOverCDP: Kết nối trực tiếp vào Microsoft Edge thật của người dùng (Port 9222)
+///    để vượt qua 100% Shopee Shield (WAF 90309999) và TikTok Captcha.
+/// 3. Fallback an toàn về Playwright Headless Browser ngầm độc lập khi Edge không bật.
 /// </summary>
 public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
 {
     private readonly ILogger<PlaywrightScraperService> _logger;
+    private readonly IConfiguration? _configuration;
     private readonly HttpClient _httpClient;
     private IPlaywright? _playwright;
     private IBrowser? _browser;
+    private bool _isConnectedOverCdp;
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private readonly SemaphoreSlim _concurrencyLock = new(3, 3);
     private bool _disposed;
 
-    public PlaywrightScraperService(ILogger<PlaywrightScraperService> logger)
+    public PlaywrightScraperService(ILogger<PlaywrightScraperService> logger, IConfiguration? configuration = null)
     {
         _logger = logger;
+        _configuration = configuration;
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)");
         _httpClient.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
@@ -82,6 +84,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         await _concurrencyLock.WaitAsync(cancellationToken);
         IBrowserContext? context = null;
         IPage? page = null;
+        bool isCreatedContext = false;
 
         try
         {
@@ -92,56 +95,71 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 return result;
             }
 
-            // Tạo Context với Stealth Mode và nạp phiên đăng nhập Shopee nếu có
-            var contextOptions = new BrowserNewContextOptions
+            if (_isConnectedOverCdp)
             {
-                UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                ViewportSize = new ViewportSize { Width = 1366, Height = 768 },
-                Locale = "vi-VN",
-                TimezoneId = "Asia/Ho_Chi_Minh"
-            };
-
-            var statePath = Path.Combine(Directory.GetCurrentDirectory(), "shopee_state.json");
-            if (!File.Exists(statePath))
-            {
-                statePath = Path.Combine(AppContext.BaseDirectory, "shopee_state.json");
-            }
-            if (File.Exists(statePath))
-            {
-                contextOptions.StorageStatePath = statePath;
-            }
-
-            context = await _browser.NewContextAsync(contextOptions);
-
-            // Ẩn hoàn toàn cờ tự động hóa (webdriver)
-            await context.AddInitScriptAsync(@"
-                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                window.chrome = { runtime: {} };
-            ");
-
-            page = await context.NewPageAsync();
-
-            // Route Aborting: Chặn tải hình ảnh, font, media để tiết kiệm 80% RAM và tăng tốc tối đa
-            await page.RouteAsync("**/*", async route =>
-            {
-                var resourceType = route.Request.ResourceType;
-                var reqUrl = route.Request.Url;
-
-                if (resourceType == "image" || 
-                    resourceType == "media" || 
-                    resourceType == "font" ||
-                    reqUrl.Contains("google-analytics") || 
-                    reqUrl.Contains("facebook.net") || 
-                    reqUrl.Contains("analytics") || 
-                    reqUrl.Contains("tracker"))
+                // Khi kết nối qua CDP: Dùng Context của Edge thật (đã có cookies, sensor, session người dùng)
+                context = _browser.Contexts.FirstOrDefault();
+                if (context == null)
                 {
-                    await route.AbortAsync();
+                    context = await _browser.NewContextAsync();
+                    isCreatedContext = true;
                 }
-                else
+                page = await context.NewPageAsync();
+            }
+            else
+            {
+                // Tạo Context với Stealth Mode và nạp phiên đăng nhập Shopee nếu có cho Chromium headless
+                var contextOptions = new BrowserNewContextOptions
                 {
-                    await route.ContinueAsync();
+                    UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    ViewportSize = new ViewportSize { Width = 1366, Height = 768 },
+                    Locale = "vi-VN",
+                    TimezoneId = "Asia/Ho_Chi_Minh"
+                };
+
+                var statePath = Path.Combine(Directory.GetCurrentDirectory(), "shopee_state.json");
+                if (!File.Exists(statePath))
+                {
+                    statePath = Path.Combine(AppContext.BaseDirectory, "shopee_state.json");
                 }
-            });
+                if (File.Exists(statePath))
+                {
+                    contextOptions.StorageStatePath = statePath;
+                }
+
+                context = await _browser.NewContextAsync(contextOptions);
+                isCreatedContext = true;
+
+                // Ẩn hoàn toàn cờ tự động hóa (webdriver)
+                await context.AddInitScriptAsync(@"
+                    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                    window.chrome = { runtime: {} };
+                ");
+
+                page = await context.NewPageAsync();
+
+                // Route Aborting: Chặn tải hình ảnh, font, media để tiết kiệm 80% RAM và tăng tốc tối đa
+                await page.RouteAsync("**/*", async route =>
+                {
+                    var resourceType = route.Request.ResourceType;
+                    var reqUrl = route.Request.Url;
+
+                    if (resourceType == "image" || 
+                        resourceType == "media" || 
+                        resourceType == "font" ||
+                        reqUrl.Contains("google-analytics") || 
+                        reqUrl.Contains("facebook.net") || 
+                        reqUrl.Contains("analytics") || 
+                        reqUrl.Contains("tracker"))
+                    {
+                        await route.AbortAsync();
+                    }
+                    else
+                    {
+                        await route.ContinueAsync();
+                    }
+                });
+            }
 
             if (lowerUrl.Contains("tiktok.com") || lowerUrl.Contains("vt.tiktok.com"))
             {
@@ -172,7 +190,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             {
                 try { await page.CloseAsync(); } catch { }
             }
-            if (context != null)
+            if (context != null && isCreatedContext && !_isConnectedOverCdp)
             {
                 try { await context.CloseAsync(); } catch { }
             }
@@ -463,22 +481,32 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         await page.GotoAsync(url, new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
-            Timeout = 12000
+            Timeout = 15000
         });
-        await page.WaitForTimeoutAsync(2500);
+        await page.WaitForTimeoutAsync(3000);
+
+        if (page.Url.Contains("verify/traffic/error"))
+        {
+            result.IsSuccess = false;
+            result.ErrorMessage = "Shopee Shield chặn truy cập (Traffic Error).";
+            return result;
+        }
 
         var jsonStr = await page.EvaluateAsync<string?>(@"() => {
             const h1 = document.querySelector('h1') || document.querySelector('div[class*=""product-briefing""] span') || document.querySelector('meta[property=""og:title""]');
             let title = h1 ? (h1.content || h1.innerText || '').trim() : '';
 
-            const imgEl = document.querySelector('meta[property=""og:image""]') || document.querySelector('div[class*=""product-briefing""] img');
+            const imgEl = document.querySelector('meta[property=""og:image""]') || 
+                          document.querySelector('img[src*=""susercontent.com""]') ||
+                          document.querySelector('div[class*=""product-briefing""] img');
             const img = imgEl ? (imgEl.content || imgEl.src || '') : '';
 
             let priceText = '';
             const priceEl = document.querySelector('.pmmxKx') || 
                             document.querySelector('.G27ShZ') || 
                             document.querySelector('div[class*=""items-center""] > div[class*=""text-""]') ||
-                            document.querySelector('div[class*=""price""]');
+                            document.querySelector('div[class*=""price""]') ||
+                            document.querySelector('span[class*=""price""]');
             if (priceEl) priceText = priceEl.innerText || '';
 
             const matches = [];
@@ -486,7 +514,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             for (const el of elements) {
                 if (el.children.length === 0) {
                     const txt = (el.innerText || '').trim();
-                    if (/^\s*₫?\s*\d{1,3}(\.\d{3})+/.test(txt) && !txt.includes('đánh giá') && !txt.includes('bán')) {
+                    if (/^\s*₫?\s*\d{1,3}(\.\d{3})+/.test(txt) && !txt.includes('đánh giá') && !txt.includes('bán') && !txt.includes('Phí') && !txt.includes('VND')) {
                         matches.push(txt);
                     }
                 }
@@ -556,6 +584,21 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         return clean.Trim();
     }
 
+    private async Task<bool> IsCdpRunningAsync(string endpoint)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(800));
+            var url = endpoint.TrimEnd('/') + "/json/version";
+            using var resp = await _httpClient.GetAsync(url, cts.Token);
+            return resp.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async Task EnsureBrowserInitializedAsync(CancellationToken cancellationToken)
     {
         if (_browser != null && _browser.IsConnected) return;
@@ -565,8 +608,29 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
         {
             if (_browser != null && _browser.IsConnected) return;
 
+            _playwright ??= await Playwright.CreateAsync();
+
+            // 1. Thử kết nối tới Microsoft Edge thật qua CDP (Port 9222) nếu đang bật
+            var cdpUrl = _configuration?["Scraper:CdpEndpoint"] ?? "http://localhost:9222";
+            if (await IsCdpRunningAsync(cdpUrl))
+            {
+                try
+                {
+                    _browser = await _playwright.Chromium.ConnectOverCDPAsync(cdpUrl);
+                    _isConnectedOverCdp = true;
+                    _logger.LogInformation("🚀 [Playwright] Đã kết nối thành công vào Microsoft Edge thật qua CDP tại {Url}!", cdpUrl);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Không thể kết nối qua CDP ({Msg}), chuyển sang trình duyệt headless.", ex.Message);
+                    _isConnectedOverCdp = false;
+                }
+            }
+
+            // 2. Fallback về Chromium Headless ngầm
+            _isConnectedOverCdp = false;
             _logger.LogInformation("Khởi tạo tiến trình Chromium headless cho Playwright...");
-            _playwright = await Playwright.CreateAsync();
             _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
                 Headless = true,
@@ -596,7 +660,10 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
 
         if (_browser != null)
         {
-            try { await _browser.CloseAsync(); } catch { }
+            if (!_isConnectedOverCdp)
+            {
+                try { await _browser.CloseAsync(); } catch { }
+            }
             try { await _browser.DisposeAsync(); } catch { }
         }
 

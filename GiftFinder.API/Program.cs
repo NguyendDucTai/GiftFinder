@@ -87,6 +87,47 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+if (args.Contains("--launch-edge"))
+{
+    Console.WriteLine("=============================================================");
+    Console.WriteLine("    KHỞI CHẠY MICROSOFT EDGE CHẾ ĐỘ DEBUG CDP (PORT 9222)    ");
+    Console.WriteLine("=============================================================");
+
+    var edgePaths = new[]
+    {
+        @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        @"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+    };
+
+    string? edgePath = edgePaths.FirstOrDefault(File.Exists);
+    if (string.IsNullOrEmpty(edgePath))
+    {
+        Console.WriteLine("Lỗi: Không tìm thấy trình duyệt Microsoft Edge trên hệ điều hành!");
+        return;
+    }
+
+    var debugProfileDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Microsoft", "Edge", "User Data Debug");
+
+    Directory.CreateDirectory(debugProfileDir);
+
+    var startInfo = new System.Diagnostics.ProcessStartInfo
+    {
+        FileName = edgePath,
+        Arguments = $"--remote-debugging-port=9222 --remote-allow-origins=* --user-data-dir=\"{debugProfileDir}\" https://shopee.vn",
+        UseShellExecute = true
+    };
+
+    System.Diagnostics.Process.Start(startInfo);
+
+    Console.WriteLine($"-> Đã mở Microsoft Edge tại cổng debug 9222 thành công!");
+    Console.WriteLine($"-> Profile debug tách biệt: {debugProfileDir}");
+    Console.WriteLine("-> Kể từ bây giờ, cào dữ liệu Shopee & TikTok sẽ đi qua Edge thật của bạn mà không bị chặn WAF!");
+    Console.WriteLine("=============================================================\n");
+    return;
+}
+
 if (args.Contains("--login-shopee"))
 {
     Console.WriteLine("=============================================================");
