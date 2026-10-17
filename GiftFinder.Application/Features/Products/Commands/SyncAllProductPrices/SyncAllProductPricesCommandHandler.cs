@@ -110,6 +110,11 @@ public class SyncAllProductPricesCommandHandler : IRequestHandler<SyncAllProduct
                         detail.NewPrice = scraped.Price;
                     }
 
+                    if (product.Source == ProductSource.TikTokShop)
+                    {
+                        product.SetOriginalPrice(null);
+                    }
+
                     if (request.ForceUpdateImages && !string.IsNullOrWhiteSpace(scraped.ImageUrl))
                     {
                         if (string.IsNullOrWhiteSpace(product.ImageUrl) || product.ImageUrl.Contains("unsplash.com"))

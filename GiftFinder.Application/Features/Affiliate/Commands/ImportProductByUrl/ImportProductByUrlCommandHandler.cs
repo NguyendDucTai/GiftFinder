@@ -107,6 +107,12 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
                             isUpdated = true;
                         }
 
+                        if (existingProduct.Source == ProductSource.TikTokShop && existingProduct.OriginalPrice != null)
+                        {
+                            existingProduct.SetOriginalPrice(null);
+                            isUpdated = true;
+                        }
+
                         if (!string.IsNullOrWhiteSpace(item.ImageUrl) && (existingProduct.ImageUrl == null || existingProduct.ImageUrl.Contains("unsplash.com") || existingProduct.ImageUrl != item.ImageUrl))
                         {
                             existingProduct.SetImageUrl(item.ImageUrl);

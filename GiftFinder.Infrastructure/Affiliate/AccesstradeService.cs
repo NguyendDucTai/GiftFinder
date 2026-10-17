@@ -20,7 +20,6 @@ public class AccesstradeService : IAffiliateNetworkService
 
     private readonly string _apiKey;
     private readonly string _affiliateId;
-    private readonly bool _useMock;
 
     public AccesstradeService(
         HttpClient httpClient, 
@@ -35,11 +34,6 @@ public class AccesstradeService : IAffiliateNetworkService
 
         _apiKey = _configuration["Accesstrade:ApiKey"] ?? "";
         _affiliateId = _configuration["Accesstrade:AffiliateId"] ?? "giftfinder_aff_01";
-        
-        var useMockConfig = _configuration["Accesstrade:UseMock"];
-        _useMock = string.IsNullOrEmpty(_apiKey) 
-                   || _apiKey.StartsWith("gsk_accesstrade_key_placeholder") 
-                   || (bool.TryParse(useMockConfig, out var parsedMock) && parsedMock);
     }
 
     public async Task<List<AffiliateProductFeedItem>> FetchFeedAsync(
@@ -48,10 +42,10 @@ public class AccesstradeService : IAffiliateNetworkService
         int limit = 20, 
         CancellationToken cancellationToken = default)
     {
-        if (_useMock)
+        if (string.IsNullOrEmpty(_apiKey) || _apiKey.StartsWith("gsk_accesstrade_key_placeholder"))
         {
-            _logger.LogInformation("AccesstradeService running in MOCK mode. Fetching feed for keyword: '{Keyword}', source: {Source}", keyword, source);
-            return GetMockCatalog(keyword, source, limit);
+            _logger.LogWarning("Accesstrade API Key chưa được cấu hình. Bỏ qua lấy feed từ khóa '{Keyword}'.", keyword);
+            return new List<AffiliateProductFeedItem>();
         }
 
         try
@@ -99,11 +93,10 @@ public class AccesstradeService : IAffiliateNetworkService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Lỗi khi gọi Accesstrade Live API. Chuyển sang fallback mock catalog.");
+            _logger.LogWarning(ex, "Lỗi khi gọi Accesstrade Live API cho từ khóa: {Keyword}", keyword);
         }
 
-        // Fallback to mock catalog
-        return GetMockCatalog(keyword, source, limit);
+        return new List<AffiliateProductFeedItem>();
     }
 
     public async Task<AffiliateProductFeedItem?> FetchProductByUrlAsync(
@@ -187,19 +180,6 @@ public class AccesstradeService : IAffiliateNetworkService
         else if (cleanUrl.Contains("tiki.vn", StringComparison.OrdinalIgnoreCase))
             source = ProductSource.Tiki;
 
-        if (_useMock)
-        {
-            // Trong mock mode, tìm trong catalog nếu khớp mã
-            var matched = GetMockCatalog("", source, 50)
-                .FirstOrDefault(p => cleanUrl.Contains(p.ExternalProductId ?? "###", StringComparison.OrdinalIgnoreCase));
-
-            if (matched != null)
-            {
-                matched.OriginalUrl = cleanUrl;
-                matched.AffiliateUrl = customAffiliateUrl ?? await GenerateDeeplinkAsync(cleanUrl, $"item_{Guid.NewGuid():N}", cancellationToken);
-                return matched;
-            }
-        }
 
         // Cào dữ liệu thực tế: Ưu tiên dùng Playwright cho TikTok Shop và các link được hỗ trợ
         ScrapedProductData? playwrightScraped = null;
@@ -525,237 +505,5 @@ public class AccesstradeService : IAffiliateNetworkService
         return char.ToUpper(cleaned[0]) + cleaned[1..];
     }
 
-    private static List<AffiliateProductFeedItem> GetMockCatalog(string keyword, ProductSource source, int limit)
-    {
-        var catalog = new List<AffiliateProductFeedItem>
-        {
-            // === SHOPEE PRODUCTS ===
-            new()
-            {
-                Name = "Set Quà Tặng Nến Thơm Cao Cấp Agaya Kèm Hộp Quà Vintage & Diêm Thủy Tinh",
-                Price = 195000,
-                OriginalPrice = 250000,
-                ImageUrl = "https://images.unsplash.com/photo-1603006905003-be475563bc59?w=600",
-                OriginalUrl = "https://shopee.vn/Set-Qua-Tang-Nen-Thom-Cao-Cap-Agaya-i.123456.987654",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FSet-Qua-Tang-Nen-Thom-Agaya&sub1=shopee_nen_thom",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_NENTHOM_01",
-                Description = "Nến thơm sáp đậu nành thiên nhiên Agaya tinh dầu cao cấp, mùi hương gỗ thông và hoa oải hương dịu nhẹ, tạo cảm giác thư giãn tuyệt đối.",
-                Rating = 4.9,
-                TotalReviews = 1420,
-                CommissionRate = 0.08m
-            },
-            new()
-            {
-                Name = "Cốc Giữ Nhiệt Lock&Lock 550ml Khắc Tên Theo Yêu Cầu Kèm Hộp Quà Sang Trọng",
-                Price = 380000,
-                OriginalPrice = 450000,
-                ImageUrl = "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600",
-                OriginalUrl = "https://shopee.vn/Coc-Giu-Nhiet-LockLock-550ml-Khac-Ten-i.123456.987655",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FCoc-Giu-Nhiet-LockLock&sub1=shopee_coc_lock",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_LOCKLOCK_02",
-                Description = "Cốc giữ nhiệt inox 316 cao cấp giữ nhiệt nóng lạnh 12h, có dịch vụ khắc tên và lời chúc ý nghĩa theo yêu cầu của bạn.",
-                Rating = 4.9,
-                TotalReviews = 890,
-                CommissionRate = 0.07m
-            },
-            new()
-            {
-                Name = "Tai Nghe Chống Ồn Sony WH-CH520 Không Dây Pin 50h Chính Hãng",
-                Price = 1190000,
-                OriginalPrice = 1490000,
-                ImageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
-                OriginalUrl = "https://shopee.vn/Tai-Nghe-Sony-WH-CH520-Chinh-Hang-i.123456.987656",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FTai-Nghe-Sony&sub1=shopee_sony_headphone",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_SONY_03",
-                Description = "Tai nghe chụp tai Sony thế hệ mới, âm thanh DSEE sống động, microphone đàm thoại sắc nét, đệm tai êm ái.",
-                Rating = 5.0,
-                TotalReviews = 540,
-                CommissionRate = 0.05m
-            },
-            new()
-            {
-                Name = "Đồng Hồ Nữ Dây Da Mặt Số Tinh Tế Curnon Kashmir Kèm Thiệp Viết Tay",
-                Price = 1850000,
-                OriginalPrice = 2200000,
-                ImageUrl = "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600",
-                OriginalUrl = "https://shopee.vn/Dong-Ho-Nu-Curnon-Kashmir-i.123456.987657",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FDong-Ho-Curnon&sub1=shopee_curnon_watch",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_CURNON_04",
-                Description = "Đồng hồ nữ chính hãng Curnon phong cách tối giản thanh lịch, kính sapphire chống xước, máy Miyota Nhật Bản bền bỉ.",
-                Rating = 4.8,
-                TotalReviews = 310,
-                CommissionRate = 0.09m
-            },
-            new()
-            {
-                Name = "Đèn Ngủ Mặt Trăng 3D Cảm Ứng Đổi 16 Màu Kèm Đế Gỗ Tự Nhiên",
-                Price = 129000,
-                OriginalPrice = 180000,
-                ImageUrl = "https://images.unsplash.com/photo-1532767153582-b1a0e5145009?w=600",
-                OriginalUrl = "https://shopee.vn/Den-Ngu-Mat-Trang-3D-i.123456.987658",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FDen-Mat-Trang-3D&sub1=shopee_moon_lamp",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_MOONLAMP_05",
-                Description = "Đèn ngủ in 3D công nghệ cao mô phỏng bề mặt mặt trăng chân thực, pin sạc USB tích hợp điều khiển từ xa.",
-                Rating = 4.8,
-                TotalReviews = 2100,
-                CommissionRate = 0.10m
-            },
-            new()
-            {
-                Name = "Set Trà Hoa Thảo Mộc 9 Vị Dưỡng Nhan Hoàng Cung Kèm Bình Thủy Tinh",
-                Price = 245000,
-                OriginalPrice = 310000,
-                ImageUrl = "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600",
-                OriginalUrl = "https://shopee.vn/Set-Tra-Hoa-Thao-Moc-9-Vi-i.123456.987659",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FTra-Hoa-Thao-Moc&sub1=shopee_tea_gift",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_TRAHOA_06",
-                Description = "Set trà thảo mộc hoa cúc, kỷ tử, hoa hồng, táo đỏ tự nhiên không hóa chất, đóng hộp quà kraft cao cấp trang trọng.",
-                Rating = 4.9,
-                TotalReviews = 670,
-                CommissionRate = 0.08m
-            },
-            new()
-            {
-                Name = "Máy Chụp Ảnh Lấy Liền Fujifilm Instax Mini 12 Kèm 20 Tấm Film & Sticker",
-                Price = 2390000,
-                OriginalPrice = 2690000,
-                ImageUrl = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600",
-                OriginalUrl = "https://shopee.vn/Fujifilm-Instax-Mini-12-i.123456.987660",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FFujifilm-Instax&sub1=shopee_instax",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_INSTAX_07",
-                Description = "Máy ảnh chụp lấy liền thiết kế pastel xinh xắn, tự động phơi sáng chuẩn đẹp mọi góc chụp, lưu giữ từng kỷ niệm ngọt ngào.",
-                Rating = 5.0,
-                TotalReviews = 430,
-                CommissionRate = 0.04m
-            },
-            new()
-            {
-                Name = "Bó Hoa Sáp Hướng Dương 7 Bông Kèm Đèn Led Đom Đóm & Thiệp Chúc Mừng",
-                Price = 99000,
-                OriginalPrice = 140000,
-                ImageUrl = "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600",
-                OriginalUrl = "https://shopee.vn/Bo-Hoa-Sap-Huong-Duong-i.123456.987661",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshopee.vn%2FHoa-Sap-Huong-Duong&sub1=shopee_flower",
-                Source = ProductSource.Shopee,
-                ExternalProductId = "SP_HOASAP_08",
-                Description = "Hoa sáp thơm vĩnh cửu màu sắc rực rỡ tượng trưng cho niềm tin và hy vọng, giữ hương thơm đến 3 năm.",
-                Rating = 4.7,
-                TotalReviews = 3200,
-                CommissionRate = 0.10m
-            },
 
-            // === TIKTOK SHOP PRODUCTS ===
-            new()
-            {
-                Name = "Gấu Bông Capybara Đeo Rùa Balo Nhồi Bông Siêu Mềm Mịn 70cm",
-                Price = 185000,
-                OriginalPrice = 240000,
-                ImageUrl = "https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=600",
-                OriginalUrl = "https://shop.tiktok.com/view/product/172948291029384",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshop.tiktok.com%2Fcapybara&sub1=tiktok_capybara",
-                Source = ProductSource.TikTokShop,
-                ExternalProductId = "TK_CAPYBARA_01",
-                Description = "Gấu bông hot trend Capybara bộ trưởng ngoại giao đeo balo rùa xanh siêu cưng, bông gòn 7D trắng tinh khiết an toàn.",
-                Rating = 4.9,
-                TotalReviews = 8800,
-                CommissionRate = 0.09m
-            },
-            new()
-            {
-                Name = "Loa Bluetooth Mini Divoom Ditoo Plus Màn Hình Pixel Retro Độc Đáo",
-                Price = 1450000,
-                OriginalPrice = 1790000,
-                ImageUrl = "https://images.unsplash.com/photo-1545454675-3531b543be5d?w=600",
-                OriginalUrl = "https://shop.tiktok.com/view/product/172948291029385",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshop.tiktok.com%2Fdivoom-ditoo&sub1=tiktok_divoom",
-                Source = ProductSource.TikTokShop,
-                ExternalProductId = "TK_DIVOOM_02",
-                Description = "Loa không dây mô phỏng máy vi tính cổ điển kiêm máy chơi game pixel, đồng hồ báo thức và màn hình decor cực chất.",
-                Rating = 4.9,
-                TotalReviews = 920,
-                CommissionRate = 0.06m
-            },
-            new()
-            {
-                Name = "Máy Xông Tinh Dầu Hiệu Ứng Ngọn Lửa Phun Sương Decor Đổi Màu RGB",
-                Price = 220000,
-                OriginalPrice = 310000,
-                ImageUrl = "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=600",
-                OriginalUrl = "https://shop.tiktok.com/view/product/172948291029386",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshop.tiktok.com%2Fflame-diffuser&sub1=tiktok_flame_diffuser",
-                Source = ProductSource.TikTokShop,
-                ExternalProductId = "TK_DIFFUSER_03",
-                Description = "Máy khuếch tán tinh dầu sóng siêu âm mô phỏng ngọn lửa ấm áp, cấp ẩm êm dịu không gây tiếng ồn.",
-                Rating = 4.8,
-                TotalReviews = 4100,
-                CommissionRate = 0.08m
-            },
-            new()
-            {
-                Name = "Dây Chuyền Bạc Ý 925 Mặt Cỏ Bốn Lá May Mắn Đính Đá Pha Lê Ánh Sáng",
-                Price = 390000,
-                OriginalPrice = 520000,
-                ImageUrl = "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=600",
-                OriginalUrl = "https://shop.tiktok.com/view/product/172948291029387",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshop.tiktok.com%2Fnecklace-silver&sub1=tiktok_necklace",
-                Source = ProductSource.TikTokShop,
-                ExternalProductId = "TK_NECKLACE_04",
-                Description = "Trang sức bạc thật cao cấp đính đá Zirconia sáng lấp lánh, mang lại may mắn và tình duyên cho người đeo.",
-                Rating = 4.9,
-                TotalReviews = 1650,
-                CommissionRate = 0.10m
-            },
-            new()
-            {
-                Name = "Hộp Quà Socola Tươi Nghệ Nhân Nama Chocolate Cao Cấp Vị Matcha & Cacao",
-                Price = 250000,
-                OriginalPrice = 320000,
-                ImageUrl = "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=600",
-                OriginalUrl = "https://shop.tiktok.com/view/product/172948291029388",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshop.tiktok.com%2Fnama-chocolate&sub1=tiktok_chocolate",
-                Source = ProductSource.TikTokShop,
-                ExternalProductId = "TK_CHOCO_05",
-                Description = "Socola tươi mềm tan ngậy thơm làm thủ công từ kem tươi New Zealand và bột trà xanh Uji Nhật Bản thượng hạng.",
-                Rating = 4.9,
-                TotalReviews = 2300,
-                CommissionRate = 0.08m
-            },
-            new()
-            {
-                Name = "Bàn Phím Cơ Không Dây E-Dra EK387 Pro RGB Mạch Xuôi Gõ Êm Tay",
-                Price = 890000,
-                OriginalPrice = 1050000,
-                ImageUrl = "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600",
-                OriginalUrl = "https://shop.tiktok.com/view/product/172948291029389",
-                AffiliateUrl = "https://go.isclix.com/deep_link/giftfinder_aff_01?url=https%3A%2F%2Fshop.tiktok.com%2Fkeyboard-edra&sub1=tiktok_keyboard",
-                Source = ProductSource.TikTokShop,
-                ExternalProductId = "TK_KEYBOARD_06",
-                Description = "Bàn phím cơ thiết kế nhỏ gọn 87 phím, switch Outemu mượt mà, LED RGB đa hiệu ứng, kết nối Bluetooth & 2.4Ghz.",
-                Rating = 4.8,
-                TotalReviews = 1240,
-                CommissionRate = 0.05m
-            }
-        };
-
-        var query = catalog.Where(c => c.Source == source);
-        if (!string.IsNullOrWhiteSpace(keyword))
-        {
-            var kw = keyword.Trim().ToLowerInvariant();
-            var filtered = query.Where(p => 
-                p.Name.ToLowerInvariant().Contains(kw) 
-                || (p.Description != null && p.Description.ToLowerInvariant().Contains(kw))).ToList();
-
-            if (filtered.Count > 0)
-                return filtered.Take(limit).ToList();
-        }
-
-        return query.Take(limit).ToList();
-    }
 }

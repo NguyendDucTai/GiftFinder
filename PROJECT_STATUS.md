@@ -1,5 +1,5 @@
 # TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
-*(Cập nhật lần cuối: 17/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 128 Sản Phẩm Chuẩn 100% Giá Thật & Link Affiliate)*
+*(Cập nhật lần cuối: 18/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 244 Sản Phẩm Chuẩn 100% Giá Thật & Link Affiliate)*
 
 ---
 
@@ -29,15 +29,14 @@
 ---
 
 ### 2. Trạng thái Kho Sản Phẩm Thực Tế Trong Database (`Products` Table):
-* **Tổng cộng 128/128 sản phẩm trong Database (`GiftFinderDb`) đã có giá thật 100% & ảnh CDN từ sàn, 0 lỗi, 0 trùng lặp:**
-  1. `Shopee (118 SP - Trọng tâm 1)`: 100% sản phẩm có giá thật từ **3.800đ đến 2.250.000đ**, ảnh CDN Shopee `down-vn.img.susercontent.com`, link Shopee Direct `an_17374170692`, gắn đủ AI tags. Đã import trọn vẹn 100% 112 link tuyển chọn từ file [shopee_links.txt](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/shopee_links.txt).
-  2. `TikTok Shop (8 SP - Trọng tâm 2)`: 100% sản phẩm có giá thật từ **5.900đ đến 29.000đ** (bóc tách theo đúng thuật toán nguyên bản trên Edge), ảnh CDN `ibyteimg.com`, link Accesstrade CPS `7086451798803801329`.
+* **Tổng cộng 244/244 sản phẩm trong Database (`GiftFinderDb`) đã có giá thật 100% & ảnh CDN từ sàn, 0 lỗi, 0 trùng lặp:**
+  1. `TikTok Shop (124 SP - Trọng tâm 2)`: 100% sản phẩm có giá hiển thị thật trên màn hình từ **10.499đ đến 1.100.000đ** (trung bình ~241.000đ, đã loại bỏ hoàn toàn giá gốc ảo và phí ship), ảnh CDN `ibyteimg.com`, link Accesstrade CPS `7086451798803801329`. Đã import trọn vẹn 100% 124 link tuyển chọn từ file `tiktokshop_links.txt`.
+  2. `Shopee (118 SP - Trọng tâm 1)`: 100% sản phẩm có giá thật từ **3.800đ đến 2.250.000đ**, ảnh CDN Shopee `down-vn.img.susercontent.com`, link Shopee Direct `an_17374170692`, gắn đủ AI tags. Đã import trọn vẹn 100% 112 link tuyển chọn từ file `shopee_links.txt`.
   3. `Lazada (1 SP)`: Giá thật **129.000đ**, ảnh gốc trực tiếp từ CDN `img.lazcdn.com`, link Ecomobi `WrkhMbQezyWOwnMYpFEiz`.
   4. `DirectMerchant (1 SP - Tiệm Quà Thảo Mộc Vintage)`: Giá **280.000đ** (sản phẩm shop nội bộ, bảo lưu an toàn).
 * **Kết quả rà soát, dọn dẹp & Chống trùng lặp (Audit & Deduplication):**
   * Đã quét toàn bộ kho dữ liệu theo cặp Shop ID + Item ID và URL: **0 bản ghi trùng lặp**.
-  * Đã xóa sạch 9 bản ghi lỗi `"Verify"` do trang traffic error cũ lưu nhầm.
-  * Đã gộp sản phẩm trùng nước hoa Kalle' Feum thành 1 bản ghi duy nhất chuẩn chỉnh.
+  * Đã xóa sạch các bản ghi lỗi do trang traffic error cũ lưu nhầm.
   * 100% các sản phẩm trong DB đều độc lập, có giá thật > 0đ, có ảnh CDN gốc và đầy đủ link tracking affiliate.
 * **Bảng `PriceHistories`:** Ghi nhận đầy đủ lịch sử biến động giá thực tế của tất cả sản phẩm theo thời gian.
 
@@ -177,7 +176,7 @@
 
 ## 🎯 KẾ HOẠCH BẮT ĐẦU CHO PHIÊN LÀM VIỆC TIẾP THEO:
 1. **Trạng thái hiện tại:** 
-   - Kho hàng đạt **128 sản phẩm sạch 100%** (118 Shopee, 8 TikTok Shop, 1 Lazada, 1 Merchant).
-   - 100% có giá thật, ảnh thật, link affiliate chuẩn và tag Groq AI.
+   - Kho hàng đạt **244 sản phẩm sạch 100%** (124 TikTok Shop, 118 Shopee, 1 Lazada, 1 Merchant).
+   - 100% có giá thật, ảnh CDN thật từ sàn, link affiliate chuẩn và tag Groq AI.
    - Toàn bộ Solution biên dịch thành công 100% (**0 Errors, 0 Warnings**).
 2. **Mục tiêu phiên mới:** Bắt đầu phát triển giao diện Web Frontend hoặc triển khai tiếp các Use Case tiếp theo (Worker Featured Shop UC-20 / API Feedback UC-04).

@@ -547,22 +547,55 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             const imgEl = document.querySelector('meta[property=""og:image""]');
             const img = imgEl ? imgEl.content : '';
 
-            let origPrice = '';
-            const origEl = document.querySelector('span[class*=""line-through""]') || document.querySelector('*[class*=""line-through""]');
-            if (origEl) origPrice = origEl.innerText.trim();
+            let salePriceText = '';
+            
+            // 1. Ưu tiên tìm trong container giá chính (nơi chứa line-through hoặc thẻ giá to cạnh ₫)
+            const origEl = document.querySelector('[class*=""line-through""]');
+            if (origEl) {
+                const row = origEl.closest('div[class*=""items-baseline""]') || origEl.parentElement;
+                if (row) {
+                    const spans = row.querySelectorAll('span');
+                    for (const s of spans) {
+                        const t = (s.innerText || '').trim();
+                        if (s !== origEl && /\d{1,3}(\.\d{3})+/.test(t) && !s.className.includes('line-through') && !t.includes('%')) {
+                            salePriceText = t;
+                            break;
+                        }
+                    }
+                }
+            }
 
-            const matches = [];
-            const elements = document.querySelectorAll('span, div, p');
-            for (const el of elements) {
-                if (el.children.length === 0) {
-                    const txt = (el.innerText || '').trim();
-                    if (/\d{1,3}\.\d{3}/.test(txt) && 
-                        !txt.includes('đánh giá') && 
-                        !txt.includes('bán') && 
-                        !txt.includes('Phí') && 
-                        !txt.includes('VND') && 
-                        !txt.includes('hàng')) {
-                        matches.push(txt);
+            // 2. Thẻ giá bán chính hiển thị cỡ lớn (font-size:36px hoặc Headline-Semibold cạnh ký hiệu ₫)
+            if (!salePriceText) {
+                const largePrice = document.querySelector('span[style*=""font-size:36px""], span[style*=""font-size: 36px""], span[style*=""font-size:32px""], span[style*=""font-size: 32px""]') ||
+                                   document.querySelector('div[class*=""items-baseline""] span[class*=""Headline-Semibold""]');
+                if (largePrice) {
+                    salePriceText = (largePrice.innerText || '').trim();
+                }
+            }
+
+            // 3. Fallback: Quét các thẻ số, loại trừ triệt để phí ship (shipping/phí), voucher, review, v.v.
+            if (!salePriceText) {
+                const elements = document.querySelectorAll('span, div, p');
+                for (const el of elements) {
+                    if (el.children.length === 0) {
+                        const txt = (el.innerText || '').trim();
+                        if (/\d{1,3}(\.\d{3})+/.test(txt)) {
+                            const ignored = el.closest('[class*=""shipping""], [class*=""voucher""], [class*=""recommend""], [class*=""delivery""], [class*=""review""], [class*=""badge""], [class*=""popover""]');
+                            const lower = txt.toLowerCase();
+                            if (!ignored && 
+                                !lower.includes('shipping') && 
+                                !lower.includes('phí') && 
+                                !lower.includes('đánh giá') && 
+                                !lower.includes('bán') && 
+                                !lower.includes('vnd') && 
+                                !lower.includes('đơn') && 
+                                !lower.includes('giảm') &&
+                                !txt.includes('%')) {
+                                salePriceText = txt;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -570,8 +603,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             return JSON.stringify({
                 title: title,
                 imageUrl: img,
-                origPrice: origPrice,
-                matches: matches
+                salePriceText: salePriceText
             });
         }");
 
@@ -582,38 +614,15 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             result.Title = CleanTitle(root.GetProperty("title").GetString() ?? "");
             result.ImageUrl = root.GetProperty("imageUrl").GetString();
 
-            var rawOrig = root.GetProperty("origPrice").GetString() ?? "";
-            var origNum = Regex.Replace(rawOrig, @"[^\d]", "");
-            if (long.TryParse(origNum, out var op) && op > 1000)
+            var rawPrice = root.GetProperty("salePriceText").GetString() ?? "";
+            var numPrice = Regex.Replace(rawPrice, @"[^\d]", "");
+            if (long.TryParse(numPrice, out var sp) && sp >= 1000 && sp < 100_000_000)
             {
-                result.OriginalPrice = op;
+                result.Price = sp;
             }
 
-            long salePrice = 0;
-            if (root.TryGetProperty("matches", out var matchesArr) && matchesArr.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in matchesArr.EnumerateArray())
-                {
-                    var rawMatch = item.GetString() ?? "";
-                    var matchNum = Regex.Replace(rawMatch, @"[^\d]", "");
-                    if (long.TryParse(matchNum, out var sp) && sp >= 1000 && sp < 100_000_000)
-                    {
-                        if (salePrice == 0 || sp < salePrice)
-                        {
-                            salePrice = sp;
-                        }
-                    }
-                }
-            }
-
-            if (salePrice > 0)
-            {
-                result.Price = salePrice;
-                if (!result.OriginalPrice.HasValue || result.OriginalPrice.Value <= salePrice)
-                {
-                    result.OriginalPrice = (long)(salePrice * 1.25);
-                }
-            }
+            // Người dùng yêu cầu: Chỉ lấy giá bán hiển thị trực tiếp trên màn hình, không lấy giá gốc ảo bị gạch ngang quá cao
+            result.OriginalPrice = null;
         }
 
         if (result.Title.Contains("Security Check", StringComparison.OrdinalIgnoreCase) || result.Title.Contains("Verify", StringComparison.OrdinalIgnoreCase))

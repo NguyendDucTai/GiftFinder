@@ -88,6 +88,11 @@ public class Product : BaseAuditableEntity
             ImageUrl = imageUrl.Trim();
     }
 
+    public void SetOriginalPrice(long? originalPrice)
+    {
+        OriginalPrice = originalPrice;
+    }
+
     public void SetRating(double rating, int totalReviews)
     {
         Rating = Math.Clamp(rating, 0.0, 5.0);

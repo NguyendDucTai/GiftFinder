@@ -245,8 +245,16 @@ if (args.Contains("--import-file"))
     var filePath = fileIdx + 1 < args.Length && !args[fileIdx + 1].StartsWith("--") ? args[fileIdx + 1] : "shopee_links.txt";
     if (!File.Exists(filePath))
     {
-        Console.WriteLine($"\n[LỖI] Không tìm thấy file: {filePath}\n");
-        return;
+        var parentCandidate = Path.Combine(Directory.GetCurrentDirectory(), "..", filePath);
+        if (File.Exists(parentCandidate))
+        {
+            filePath = Path.GetFullPath(parentCandidate);
+        }
+        else
+        {
+            Console.WriteLine($"\n[LỖI] Không tìm thấy file: {filePath}\n");
+            return;
+        }
     }
 
     var lines = await File.ReadAllLinesAsync(filePath);
