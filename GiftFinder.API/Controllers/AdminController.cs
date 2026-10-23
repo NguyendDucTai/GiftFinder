@@ -84,4 +84,14 @@ public class AdminController : ControllerBase
         var result = await _mediator.Send(new UnlockUserCommand(id));
         return Ok(result);
     }
+
+    /// <summary>
+    /// [UC-20] Kích hoạt thủ công tiến trình quét và hạ cờ sản phẩm Featured hết hạn, gửi cảnh báo gia hạn cho Merchant
+    /// </summary>
+    [HttpPost("trigger-featured-expiration")]
+    public async Task<IActionResult> TriggerFeaturedExpiration()
+    {
+        var result = await _mediator.Send(new GiftFinder.Application.Features.Merchants.Commands.ProcessFeaturedExpiration.ProcessFeaturedExpirationCommand());
+        return Ok(result);
+    }
 }

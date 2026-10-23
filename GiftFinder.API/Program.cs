@@ -307,4 +307,39 @@ if (args.Contains("--import-file"))
     return;
 }
 
+if (args.Contains("--expire-featured"))
+{
+    using var scope = app.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+    Console.WriteLine("=============================================================");
+    Console.WriteLine("  BẮT ĐẦU QUÉT HẾT HẠN GÓI FEATURED & GỬI CẢNH BÁO (UC-20)  ");
+    Console.WriteLine("=============================================================\n");
+
+    var res = await mediator.Send(new GiftFinder.Application.Features.Merchants.Commands.ProcessFeaturedExpiration.ProcessFeaturedExpirationCommand());
+
+    Console.WriteLine("=============================================================");
+    Console.WriteLine($"  KẾT QUẢ XỬ LÝ (UC-20)");
+    Console.WriteLine("=============================================================");
+    Console.WriteLine($"-> Số sản phẩm hết hạn đã hạ cờ       : {res.ExpiredCount}");
+    if (res.ExpiredProductNames.Count > 0)
+    {
+        foreach (var name in res.ExpiredProductNames)
+        {
+            Console.WriteLine($"   * [HẾT HẠN] {name}");
+        }
+    }
+
+    Console.WriteLine($"-> Số sản phẩm sắp hết hạn đã cảnh báo: {res.AlertedCount}");
+    if (res.AlertedProductNames.Count > 0)
+    {
+        foreach (var name in res.AlertedProductNames)
+        {
+            Console.WriteLine($"   * [CẢNH BÁO 3 NGÀY] {name}");
+        }
+    }
+    Console.WriteLine($"\nThông điệp: {res.Message}\n");
+    return;
+}
+
 app.Run();

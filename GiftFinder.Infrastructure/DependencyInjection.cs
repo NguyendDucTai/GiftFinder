@@ -47,6 +47,9 @@ public static class DependencyInjection
         services.AddScoped<IPaymentService, Services.VietQrPaymentService>();
         services.AddHostedService<BackgroundJobs.SubscriptionExpirationWorker>();
 
+        // [UC-20] Đăng ký Featured Expiration Worker tự động hạ cờ gói đẩy Top và nhắc gia hạn trước 3 ngày
+        services.AddHostedService<BackgroundJobs.FeaturedExpirationWorker>();
+
         return services;
     }
 }

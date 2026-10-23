@@ -150,27 +150,35 @@
   - **Cào và nhập thành công 100% 112 link Shopee** từ file `shopee_links.txt` vào PostgreSQL, gắn đầy đủ tags AI và affiliate link.
   - **Đồng bộ giá tự động đa sàn** (`--sync-prices --source <Shopee|TikTokShop|Lazada>`).
 
+### 17. Tự động Hết Hạn Gói Tài Trợ Featured & Nhắc Nhở Gia Hạn (UC-20)
+- Tự động tắt cờ `IsFeatured = false`, đặt `FeaturedUntil = null` khi đến hạn (BR-27).
+- Gửi Email qua máy chủ Brevo SMTP và tạo thông báo in-app (`Notification`) cho chủ shop (Merchant) khi gói Featured hết hạn.
+- Gửi Email cảnh báo nhắc gia hạn trước 3 ngày (`now < FeaturedUntil <= now + 3 days`) kèm cơ chế deduplication (chống gửi lặp trong 3 ngày).
+- `FeaturedExpirationWorker` chạy ngầm tự động định kỳ 12 giờ một lần (BackgroundService).
+- Endpoint Admin kích hoạt quét thủ công: `POST /api/Admin/trigger-featured-expiration`.
+- Hỗ trợ cờ CLI chạy quét tức thì: `dotnet run --project GiftFinder.API -- --expire-featured`.
+- Đã kiểm thử trực tiếp trên PostgreSQL và Brevo SMTP thành công 100%.
+
 ---
 
 ## ⏳ CÁC TÍNH NĂNG TIẾP THEO CẦN LÀM & LỘ TRÌNH PHÁT TRIỂN
 
-1. **Giao diện Web / Frontend**:
+1. **Cổng thanh toán VietQR cho Gói Featured của Merchant (UC-25)**:
+   - Áp dụng cổng thanh toán VietQR đã xây dựng cho Merchant mua gói đẩy Top tuần (49k) hoặc tháng (199k).
+
+2. **Tính năng Phản hồi & Đánh giá Gợi ý Quà (UC-04)**:
+   - Cho phép người dùng đánh giá 1-5 sao và để lại nhận xét sau khi nhận tư vấn từ AI để đo lường độ hài lòng.
+
+3. **Theo dõi biến động giá quà tặng (Price Tracking - UC-08 & UC-22)**:
+   - Cho phép User Premium theo dõi tối đa 20 sản phẩm, Worker quét giá hàng ngày và gửi thông báo khi giá giảm >= 5%.
+
+4. **Đối soát hoa hồng Affiliate & Báo cáo Tài chính (UC-26, UC-28, UC-29)**:
+   - Nhập báo cáo hoa hồng từ Accesstrade / Shopee, tính doanh thu và hoa hồng ước tính.
+
+5. **Giao diện Web / Frontend**:
    - Xây dựng giao diện web người dùng tìm quà tặng, tương tác với AI Recommendation, xem danh mục và chuyển hướng Affiliate.
    - Giao diện Admin duyệt quà và xem báo cáo hoa hồng.
    - Giao diện Merchant quản lý quà tặng và mua gói tài trợ.
-
-2. **Tự động hóa ngầm cho Merchant (Background Workers)**:
-   - Worker chạy ngầm định kỳ hàng ngày tự động tắt cờ `IsFeatured = false` khi quá hạn `FeaturedUntil` (UC-20).
-   - Gửi Email cảnh báo trước 3 ngày nhắc Shop gia hạn gói tài trợ qua Brevo SMTP.
-
-3. **Cổng thanh toán VietQR cho Gói Featured của Merchant (UC-25)**:
-   - Áp dụng cổng thanh toán VietQR đã xây dựng cho Merchant mua gói đẩy Top tuần (49k) hoặc tháng (199k).
-
-4. **Tính năng Phản hồi & Đánh giá Gợi ý Quà (UC-04)**:
-   - Cho phép người dùng đánh giá 1-5 sao và để lại nhận xét sau khi nhận tư vấn từ AI để đo lường độ hài lòng.
-
-5. **Theo dõi biến động giá quà tặng (Price Tracking - UC-08 & UC-22)**:
-   - Cho phép User Premium theo dõi tối đa 20 sản phẩm, Worker quét giá hàng ngày và gửi thông báo khi giá giảm >= 5%.
 
 ---
 
@@ -178,5 +186,6 @@
 1. **Trạng thái hiện tại:** 
    - Kho hàng đạt **244 sản phẩm sạch 100%** (124 TikTok Shop, 118 Shopee, 1 Lazada, 1 Merchant).
    - 100% có giá thật, ảnh CDN thật từ sàn, link affiliate chuẩn và tag Groq AI.
+   - Hoàn thành trọn vẹn Use Case **UC-20: Tự động hết hạn Featured**.
    - Toàn bộ Solution biên dịch thành công 100% (**0 Errors, 0 Warnings**).
-2. **Mục tiêu phiên mới:** Bắt đầu phát triển giao diện Web Frontend hoặc triển khai tiếp các Use Case tiếp theo (Worker Featured Shop UC-20 / API Feedback UC-04).
+2. **Mục tiêu phiên mới:** Triển khai Use Case **UC-25** (Thanh toán gói Featured cho Merchant) hoặc **UC-04** (Đánh giá gợi ý quà từ AI).
