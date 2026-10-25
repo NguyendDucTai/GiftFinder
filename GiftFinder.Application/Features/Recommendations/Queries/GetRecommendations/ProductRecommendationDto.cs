@@ -16,4 +16,7 @@ public class ProductRecommendationDto
     
     // Cờ đánh dấu sản phẩm được tài trợ / Đẩy Top
     public bool IsFeatured { get; set; }
+
+    // Nhãn hiển thị huy hiệu trên giao diện (ví dụ: "Được tài trợ", "Top Pick • Đối tác")
+    public string? BadgeLabel { get; set; }
 }

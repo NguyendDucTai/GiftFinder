@@ -22,6 +22,7 @@ public interface IApplicationDbContext
     DbSet<GiftPoll> GiftPolls { get; }
     DbSet<GiftPollItem> GiftPollItems { get; }
     DbSet<GiftPollVote> GiftPollVotes { get; }
+    DbSet<PriceTracking> PriceTrackings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

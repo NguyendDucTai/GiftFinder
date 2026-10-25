@@ -120,8 +120,7 @@ namespace GiftFinder.Infrastructure.Migrations
 
                     b.Property<string>("TrackingUrl")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(500)
@@ -385,6 +384,48 @@ namespace GiftFinder.Infrastructure.Migrations
                     b.ToTable("PriceHistories", (string)null);
                 });
 
+            modelBuilder.Entity("GiftFinder.Domain.Entities.PriceTracking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("InitialPrice")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastNotifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastNotifiedPrice")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UserId", "ProductId");
+
+                    b.ToTable("PriceTrackings", (string)null);
+                });
+
             modelBuilder.Entity("GiftFinder.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -392,8 +433,7 @@ namespace GiftFinder.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("AffiliateUrl")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -408,8 +448,7 @@ namespace GiftFinder.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ImageUrl")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -430,8 +469,7 @@ namespace GiftFinder.Infrastructure.Migrations
 
                     b.Property<string>("OriginalUrl")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<int>("PopularityScore")
                         .HasColumnType("integer");
@@ -967,6 +1005,25 @@ namespace GiftFinder.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GiftFinder.Domain.Entities.PriceTracking", b =>
+                {
+                    b.HasOne("GiftFinder.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GiftFinder.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GiftFinder.Domain.Entities.Product", b =>

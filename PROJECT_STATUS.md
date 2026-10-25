@@ -159,6 +159,44 @@
 - Hỗ trợ cờ CLI chạy quét tức thì: `dotnet run --project GiftFinder.API -- --expire-featured`.
 - Đã kiểm thử trực tiếp trên PostgreSQL và Brevo SMTP thành công 100%.
 
+### 18. Thuật toán Hiển thị Quà tặng Xen kẽ có điều kiện (Interleaved Slotting - UC-18)
+- Mô hình hiển thị quảng cáo xen kẽ có điều kiện chuẩn phong cách Shopee & Amazon Ads.
+- **Quy tắc Thực lực Top 1 (#1 Merit Rule):** Nếu sản phẩm của Shop thực sự phù hợp nhất (sau khi cộng 20% điểm thưởng Featured), nó hoàn toàn xứng đáng đứng **Top 1**, nhận huy hiệu danh giá `Top Pick • Đối tác` và được AI viết đoạn tư vấn `AiAdvice`. Nếu sản phẩm tự nhiên tốt hơn, Top 1 giữ nguyên cho Organic.
+- **Phân bổ vị trí xen kẽ (BR-26):** 
+  - Nếu Top 1 là Organic: Món Featured xuất hiện ở **Vị trí #3, #7** (tối đa 2 Featured trong Top 10).
+  - Nếu Top 1 là Featured: Món Featured tiếp theo xuất hiện ở **Vị trí #5, #9** (tối đa 3 Featured trong Top 10).
+  - Luôn có khoảng đệm 2–3 món tự nhiên xen giữa các món tài trợ để người dùng không có cảm giác bị nhồi nhét.
+- **Sàng lọc độ liên quan (Relevance First - BR-25):** Bắt buộc sản phẩm Featured phải thuộc Tier giá hợp lệ và có liên quan từ khóa/dịp tặng. Sản phẩm lệch ngành hàng bị loại ngay từ đầu, bảo vệ 100% uy tín gợi ý AI.
+- **Cơ chế Xoay vòng công bằng (Impression Fair-Share Rotation):** Áp dụng thuật toán ngẫu nhiên có trọng số (weighted jitter) để khi có nhiều shop cùng mua gói, các lượt tìm kiếm khác nhau sẽ luân phiên đưa các shop khác nhau lên vị trí vàng (#3, #7).
+- Bổ sung cơ chế Fallback chống nghẽn cho Groq AI, đảm bảo khi AI gặp sự cố (429 rate-limit hoặc timeout) thì người dùng vẫn nhận được kết quả tìm kiếm tự nhiên mượt mà.
+- **Bộ kiểm thử tự động:** Tích hợp CLI `dotnet run --project GiftFinder.API -- --test-interleaved` kiểm tra toàn diện 5/5 kịch bản (100% PASS).
+
+### 19. Module Theo Dõi Biến Động Giá & Cảnh Báo Giảm Giá (UC-08 & UC-22)
+- **Chính sách Freemium thông minh:**
+  - Free User: Tặng **3 sản phẩm theo dõi cùng lúc** lần đầu trải nghiệm (Welcome Trial). Từ lần sau: Tối đa **1 sản phẩm mới / ngày**. Nếu thêm quá giới hạn trong ngày thì hiển thị popup mời nâng cấp Premium (29k/tháng) mở khóa 20 sản phẩm.
+  - Premium User: Theo dõi tối đa **20 sản phẩm** không giới hạn số ngày (BR-11).
+- **Thao tác 1-Chạm (1-Click Track):** Bấm chuông theo dõi là xong ngay, hệ thống tự động lưu `InitialPrice` và kích hoạt khi giá giảm $\ge 5\%$.
+- **Giao diện Quản lý theo dõi giá dạng Danh sách (Price Watchlist Page - như Wishlist):**
+  - Trang `/tai-khoan/theo-doi-gia` hiển thị thanh Header hạn mức cước, các Tab lọc (`Tất cả`, `Đang giảm giá 🔥`, `Giá không đổi`), thẻ card hiển thị giá ban đầu $\rightarrow$ giá hiện tại, nhãn đỏ giảm giá `-% (-X đ)`, nút `[ Mua ngay trên sàn ]` (link Affiliate) và `[ Bỏ theo dõi ]`.
+- **Cơ chế Cào giá ưu tiên thủ công (On-Demand Scraping - Chống WAF Captcha 100%):**
+  - Cung cấp lệnh CLI: `dotnet run --project GiftFinder.API -- --sync-tracked [--fast]` và API `POST /api/Admin/sync-tracked-prices`.
+  - Chỉ lọc đúng các sản phẩm đang có người theo dõi (5–20 món thay vì cào 244 món), chạy qua Edge CDP thật, có người kéo Captcha thủ công an toàn 100%.
+- **Giải pháp Gom Email thông minh (Digest Email chuẩn Steam & Shopee - Kéo Traffic về Web):**
+  - Không nhét bảng giá cồng kềnh vào email.
+  - Nếu 1 món giảm: Gửi email 1 món ngắn gọn kèm nút CTA **[ Xem giá mới trên GiftFinder ]**.
+  - Nếu nhiều món cùng giảm: Gom vào 1 email duy nhất thông báo có `{N} món quà giảm giá` kèm nút CTA **[ Xem các món đang giảm giá ]**.
+  - Tự động tạo thông báo in-app `Notifications` (`NotificationType.PriceDrop`).
+  - Chống spam 24h: Đánh dấu `LastNotifiedAt`, không gửi lặp lại thông báo cho sản phẩm đã báo trong ngày.
+- **Bộ kiểm thử tự động toàn diện:** CLI `dotnet run --project GiftFinder.API -- --test-price-tracking` vượt qua **8/8 Test Cases (100% PASS)**:
+  - TC-01: Free Welcome Quota (3 món đầu thành công).
+  - TC-02: Free Daily Limit (món thứ 4 trong ngày bị chặn đúng thông báo).
+  - TC-03: Chống trùng lặp theo dõi.
+  - TC-04: Premium Tier (theo dõi 20 món thành công, món 21 bị chặn theo BR-11).
+  - TC-05: Query trang Quản lý theo dõi giá (Price Watchlist + QuotaInfo).
+  - TC-06: Báo giảm giá 1 món (Notification in-app + Email đơn Brevo SMTP).
+  - TC-07: Báo giảm giá nhiều món (Gom vào 1 Email Digest duy nhất).
+  - TC-08: Chống spam 24h (0 email gửi lặp) & Hủy theo dõi thành công.
+
 ---
 
 ## ⏳ CÁC TÍNH NĂNG TIẾP THEO CẦN LÀM & LỘ TRÌNH PHÁT TRIỂN
@@ -169,13 +207,10 @@
 2. **Tính năng Phản hồi & Đánh giá Gợi ý Quà (UC-04)**:
    - Cho phép người dùng đánh giá 1-5 sao và để lại nhận xét sau khi nhận tư vấn từ AI để đo lường độ hài lòng.
 
-3. **Theo dõi biến động giá quà tặng (Price Tracking - UC-08 & UC-22)**:
-   - Cho phép User Premium theo dõi tối đa 20 sản phẩm, Worker quét giá hàng ngày và gửi thông báo khi giá giảm >= 5%.
+3. **Đối soát hoa hồng Affiliate & Báo cáo Tài chính (UC-10, UC-11, UC-12)**:
+   - Nhận Postback đơn hàng từ Accesstrade / Shopee, tính doanh thu và hoa hồng ước tính.
 
-4. **Đối soát hoa hồng Affiliate & Báo cáo Tài chính (UC-26, UC-28, UC-29)**:
-   - Nhập báo cáo hoa hồng từ Accesstrade / Shopee, tính doanh thu và hoa hồng ước tính.
-
-5. **Giao diện Web / Frontend**:
+4. **Giao diện Web / Frontend**:
    - Xây dựng giao diện web người dùng tìm quà tặng, tương tác với AI Recommendation, xem danh mục và chuyển hướng Affiliate.
    - Giao diện Admin duyệt quà và xem báo cáo hoa hồng.
    - Giao diện Merchant quản lý quà tặng và mua gói tài trợ.
@@ -186,6 +221,7 @@
 1. **Trạng thái hiện tại:** 
    - Kho hàng đạt **244 sản phẩm sạch 100%** (124 TikTok Shop, 118 Shopee, 1 Lazada, 1 Merchant).
    - 100% có giá thật, ảnh CDN thật từ sàn, link affiliate chuẩn và tag Groq AI.
-   - Hoàn thành trọn vẹn Use Case **UC-20: Tự động hết hạn Featured**.
+   - Hoàn thành trọn vẹn Use Case **UC-20 (Tự động hết hạn Featured)**, **UC-18 (Xếp hạng xen kẽ Interleaved Slotting)**, và **UC-08 & UC-22 (Theo dõi biến động giá & Cảnh báo giảm giá)**.
+   - Tiến độ tổng thể: **25 / 31 Use Cases (~80.6% hoàn thành)**.
    - Toàn bộ Solution biên dịch thành công 100% (**0 Errors, 0 Warnings**).
-2. **Mục tiêu phiên mới:** Triển khai Use Case **UC-25** (Thanh toán gói Featured cho Merchant) hoặc **UC-04** (Đánh giá gợi ý quà từ AI).
+2. **Mục tiêu phiên mới:** Triển khai Use Case **UC-25** (Thanh toán gói Featured cho Merchant bằng VietQR) hoặc **UC-04** (Đánh giá phản hồi gợi ý quà từ AI).

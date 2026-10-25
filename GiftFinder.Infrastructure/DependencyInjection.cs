@@ -32,6 +32,7 @@ public static class DependencyInjection
             configuration.GetSection("EmailSettings"));
         services.AddTransient<IEmailService, Services.SmtpEmailService>();
         services.AddScoped<IReminderNotificationService, Services.ReminderNotificationService>();
+        services.AddScoped<IPriceAlertService, Services.PriceAlertService>();
         services.AddHostedService<BackgroundJobs.BirthdayReminderWorker>();
 
         // Đăng ký Web Scraper Service (Playwright Headless Browser ngầm)

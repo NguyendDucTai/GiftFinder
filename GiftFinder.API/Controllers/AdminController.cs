@@ -94,4 +94,14 @@ public class AdminController : ControllerBase
         var result = await _mediator.Send(new GiftFinder.Application.Features.Merchants.Commands.ProcessFeaturedExpiration.ProcessFeaturedExpirationCommand());
         return Ok(result);
     }
+
+    /// <summary>
+    /// [UC-08 & UC-22] Kích hoạt thủ công tiến trình cào giá ưu tiên cho các sản phẩm đang có người theo dõi & gửi email thông báo giảm giá
+    /// </summary>
+    [HttpPost("sync-tracked-prices")]
+    public async Task<IActionResult> SyncTrackedPrices([FromQuery] bool fastMode = false)
+    {
+        var result = await _mediator.Send(new GiftFinder.Application.Features.Products.Commands.SyncTrackedProductPrices.SyncTrackedProductPricesCommand { FastMode = fastMode });
+        return Ok(result);
+    }
 }

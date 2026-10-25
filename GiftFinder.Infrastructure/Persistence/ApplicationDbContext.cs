@@ -20,8 +20,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<ProductTag> ProductTags => Set<ProductTag>();
 
-    // 3. Recommendation & User Engagement (UC-01, UC-02, UC-03, UC-04, UC-16, UC-31)
+    // 3. Recommendation & User Engagement (UC-01, UC-02, UC-03, UC-04, UC-08, UC-16, UC-31)
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
+    public DbSet<PriceTracking> PriceTrackings => Set<PriceTracking>();
     public DbSet<RecommendationLog> RecommendationLogs => Set<RecommendationLog>();
     public DbSet<RecommendationRule> RecommendationRules => Set<RecommendationRule>();
 

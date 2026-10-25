@@ -189,8 +189,8 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
             return 1;
         }
 
-        // Hàm tính điểm tổng hợp cho từng sản phẩm
-        double CalculateTotalScore(Product p)
+        // Hàm tính điểm cơ bản (Base Score) cho sản phẩm theo từ khóa, độ hot, rating và cung hoàng đạo
+        double CalculateBaseScore(Product p)
         {
             double score = CalculateKeywordMatchScore(p);
 
@@ -202,53 +202,203 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
             score += (p.PopularityScore * 0.1);
             score += (p.Rating * 5);
 
-            // UC-18: Ưu tiên cộng +20% điểm cho sản phẩm mua gói hiển thị nổi bật (Featured)
-            if (IsActiveFeatured(p))
-            {
-                score = (score * 1.2) + 15;
-            }
-
             return score;
         }
 
-        // 5. Xếp hạng sản phẩm phân tầng (Tiered Ranking):
-        // - Ưu tiên đưa các sản phẩm Featured phù hợp lên HÀNG ĐẦU TIÊN (Top 1 - 3 món đầu bảng, guardrail tối đa 3)
-        // - Các món tự nhiên xếp theo: Tầng giá 1 (đúng giá) -> Tầng giá 2 (loanh quanh) -> Tầng giá 3
-        var featuredItems = products
-            .Where(IsActiveFeatured)
+        // BR-25: Điểm ưu tiên cho Featured (cộng tối đa 20% + 15 điểm ưu tiên)
+        double CalculateFeaturedScore(Product p)
+        {
+            return (CalculateBaseScore(p) * 1.2) + 15;
+        }
+
+        // [BR-25: Relevance First] Kiểm tra sản phẩm Featured có đủ điều kiện lọt vào nhóm quảng cáo ưu tiên không
+        bool IsEligibleFeatured(Product p)
+        {
+            if (!IsActiveFeatured(p)) return false;
+
+            // Loại bỏ sản phẩm lệch tầng giá quá xa (Tier 3)
+            if (GetPriceTier(p) > 2) return false;
+
+            // Kiểm tra độ liên quan: Nếu người dùng có nhu cầu cụ thể (dịp, đối tượng, sở thích, cung hoàng đạo)
+            // thì sản phẩm Featured bắt buộc phải có ít nhất 1 điểm liên quan thực tế
+            bool hasSpecificIntent = !string.IsNullOrEmpty(occasionKeyword) ||
+                                     !string.IsNullOrEmpty(relationshipKeyword) ||
+                                     interestKeywords.Count > 0 ||
+                                     effectiveZodiac.HasValue;
+
+            if (hasSpecificIntent)
+            {
+                int keywordScore = CalculateKeywordMatchScore(p);
+                bool matchesZodiac = effectiveZodiac.HasValue && p.SuitableZodiacs != null && p.SuitableZodiacs.Contains(effectiveZodiac.Value);
+
+                if (keywordScore == 0 && !matchesZodiac)
+                {
+                    return false; // Lạc đề hoàn toàn -> không cho hiển thị trong slot tài trợ
+                }
+            }
+
+            return true;
+        }
+
+        // 5. Thuật toán Xếp hạng & Xen kẽ Vị trí có điều kiện (Interleaved Slotting - Amazon & Shopee Pattern)
+        // Tách các sản phẩm thành nhóm Featured đủ điều kiện và nhóm Organic
+        var eligibleFeatured = products.Where(IsEligibleFeatured).ToList();
+        var eligibleFeaturedIds = eligibleFeatured.Select(f => f.Id).ToHashSet();
+        var organicCandidates = products.Where(p => !eligibleFeaturedIds.Contains(p.Id)).ToList();
+
+        // [Quy tắc 4: Xoay vòng công bằng theo lượt khách]
+        // Ngẫu nhiên có trọng số nhẹ (Jitter 0 -> 3.0 điểm) để các shop có điểm ngang nhau luân phiên xuất hiện ở các lượt tìm kiếm khác nhau
+        double GetRotationScore(Product p)
+        {
+            return CalculateFeaturedScore(p) + (Random.Shared.NextDouble() * 3.0);
+        }
+
+        // [Quy tắc 2: Thực lực Vị trí #1]
+        // Tìm ứng viên tốt nhất của từng nhóm (ưu tiên Tier 1 trước, sau đó đến điểm số)
+        var bestFeatured = eligibleFeatured
             .OrderBy(p => GetPriceTier(p))
-            .ThenByDescending(p => CalculateTotalScore(p))
-            .Take(3)
+            .ThenByDescending(CalculateFeaturedScore)
+            .ThenByDescending(p => p.PopularityScore)
+            .FirstOrDefault();
+
+        var bestOrganic = organicCandidates
+            .OrderBy(p => GetPriceTier(p))
+            .ThenByDescending(CalculateBaseScore)
+            .ThenByDescending(p => p.PopularityScore)
+            .FirstOrDefault();
+
+        bool top1IsFeatured = false;
+        Product? top1Product = null;
+
+        if (bestFeatured != null && bestOrganic != null)
+        {
+            int featTier = GetPriceTier(bestFeatured);
+            int orgTier = GetPriceTier(bestOrganic);
+
+            if (featTier < orgTier)
+            {
+                top1IsFeatured = true;
+                top1Product = bestFeatured;
+            }
+            else if (featTier > orgTier)
+            {
+                top1IsFeatured = false;
+                top1Product = bestOrganic;
+            }
+            else
+            {
+                // Cùng tier -> so sánh điểm số thực tế
+                if (CalculateFeaturedScore(bestFeatured) >= CalculateBaseScore(bestOrganic))
+                {
+                    top1IsFeatured = true;
+                    top1Product = bestFeatured;
+                }
+                else
+                {
+                    top1IsFeatured = false;
+                    top1Product = bestOrganic;
+                }
+            }
+        }
+        else if (bestFeatured != null)
+        {
+            top1IsFeatured = true;
+            top1Product = bestFeatured;
+        }
+        else if (bestOrganic != null)
+        {
+            top1IsFeatured = false;
+            top1Product = bestOrganic;
+        }
+
+        // Danh sách các ứng viên còn lại sau khi đã chốt Top 1
+        var remainingFeatured = eligibleFeatured
+            .Where(p => top1Product == null || p.Id != top1Product.Id)
+            .OrderBy(p => GetPriceTier(p))
+            .ThenByDescending(GetRotationScore)
             .ToList();
 
-        var featuredIdSet = featuredItems.Select(f => f.Id).ToHashSet();
-
-        var organicItems = products
-            .Where(p => !featuredIdSet.Contains(p.Id))
-            .OrderBy(p => GetPriceTier(p)) // Tầng 1 lên trước -> đến Tầng 2 loanh quanh -> đến Tầng 3
-            .ThenByDescending(p => CalculateTotalScore(p)) // Trong cùng tầng, món nào hợp nhất lên trước
+        var remainingOrganic = organicCandidates
+            .Where(p => top1Product == null || p.Id != top1Product.Id)
+            .OrderBy(p => GetPriceTier(p))
+            .ThenByDescending(CalculateBaseScore)
             .ThenByDescending(p => p.CreatedAt)
             .ToList();
 
-        var rankedProducts = featuredItems.Concat(organicItems).ToList();
+        // [Quy tắc 3: Lắp ráp danh sách theo công thức Xen kẽ]
+        var rankedItems = new List<(Product Product, bool IsFeaturedSlot, string? BadgeLabel)>();
 
-        int totalCount = rankedProducts.Count;
+        if (top1Product != null)
+        {
+            rankedItems.Add((
+                top1Product, 
+                top1IsFeatured, 
+                top1IsFeatured ? "Top Pick • Đối tác" : null
+            ));
+
+            int currentPos = 2;
+            int featIndex = 0;
+            int orgIndex = 0;
+
+            bool IsTargetFeaturedSlot(int pos)
+            {
+                if (top1IsFeatured)
+                {
+                    // Top 1 đã là Featured -> các slot tiếp theo: Vị trí #5, #9 (giữa luôn có 3 organic)
+                    if (pos == 5 || pos == 9) return true;
+                    if (pos > 10 && (pos - 9) % 5 == 0) return true;
+                }
+                else
+                {
+                    // Top 1 là Organic -> các slot tiếp theo: Vị trí #3, #7 (giữa luôn có 3 organic)
+                    if (pos == 3 || pos == 7) return true;
+                    if (pos > 10 && (pos - 7) % 5 == 0) return true;
+                }
+                return false;
+            }
+
+            while (rankedItems.Count < products.Count)
+            {
+                bool wantFeatured = IsTargetFeaturedSlot(currentPos);
+
+                if (wantFeatured && featIndex < remainingFeatured.Count)
+                {
+                    var fProd = remainingFeatured[featIndex++];
+                    rankedItems.Add((fProd, true, "Được tài trợ"));
+                }
+                else if (orgIndex < remainingOrganic.Count)
+                {
+                    var oProd = remainingOrganic[orgIndex++];
+                    rankedItems.Add((oProd, false, null));
+                }
+                else if (featIndex < remainingFeatured.Count)
+                {
+                    var fProd = remainingFeatured[featIndex++];
+                    rankedItems.Add((fProd, true, "Được tài trợ"));
+                }
+
+                currentPos++;
+            }
+        }
+
+        int totalCount = rankedItems.Count;
 
         // 6. Phân trang
-        var pagedProducts = rankedProducts
+        var pagedProducts = rankedItems
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(p => new ProductRecommendationDto
+            .Select(item => new ProductRecommendationDto
             {
-                Id = p.Id,
-                Name = p.Name,
-                Price = p.Price,
-                ImageUrl = p.ImageUrl,
-                AffiliateUrl = p.AffiliateUrl,
-                OriginalUrl = p.OriginalUrl,
-                Rating = p.Rating,
-                TotalReviews = p.TotalReviews,
-                IsFeatured = IsActiveFeatured(p)
+                Id = item.Product.Id,
+                Name = item.Product.Name,
+                Price = item.Product.Price,
+                ImageUrl = item.Product.ImageUrl,
+                AffiliateUrl = item.Product.AffiliateUrl,
+                OriginalUrl = item.Product.OriginalUrl,
+                Rating = item.Product.Rating,
+                TotalReviews = item.Product.TotalReviews,
+                IsFeatured = item.IsFeaturedSlot,
+                BadgeLabel = item.BadgeLabel
             }).ToList();
 
         // 7. Gọi AI sinh lời khuyên cho Món Quà Top 1 ở trang đầu tiên

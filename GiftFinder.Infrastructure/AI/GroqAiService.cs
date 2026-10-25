@@ -309,23 +309,30 @@ Xuất ra dưới dạng JSON thuần túy duy nhất.";
             }
             else
             {
-                return new ParsedRecommendationIntent
-                {
-                    IsValidGiftIntent = false,
-                    AiMessage = $"[Groq AI trả về mã {statusCode}]: {errorMsg}",
-                    Summary = prompt.Trim()
-                };
+                // Fallback khi AI gặp lỗi (429, timeout, network): Không chặn người dùng mà bóc tách từ khóa cơ bản từ prompt
+                return CreateFallbackIntent(prompt, $"Hệ thống đang gợi ý dựa trên từ khóa do AI tạm thời bận ({statusCode})");
             }
         }
         catch (Exception ex)
         {
-            return new ParsedRecommendationIntent
-            {
-                IsValidGiftIntent = false,
-                AiMessage = $"[Lỗi kết nối tới Groq AI]: {ex.Message}",
-                Summary = prompt.Trim()
-            };
+            return CreateFallbackIntent(prompt, $"Hệ thống đang gợi ý dựa trên từ khóa ({ex.Message})");
         }
+    }
+
+    private ParsedRecommendationIntent CreateFallbackIntent(string prompt, string? notice = null)
+    {
+        var words = prompt.Split(new[] { ' ', ',', '.', ';', '?', '!' }, StringSplitOptions.RemoveEmptyEntries)
+                          .Where(w => w.Length > 1)
+                          .Take(5)
+                          .ToList();
+
+        return new ParsedRecommendationIntent
+        {
+            IsValidGiftIntent = true,
+            Summary = prompt.Trim(),
+            AiMessage = notice,
+            InterestKeywords = words
+        };
     }
 
     public async Task<ProductTaggingResult> ClassifyAndTagProductAsync(
