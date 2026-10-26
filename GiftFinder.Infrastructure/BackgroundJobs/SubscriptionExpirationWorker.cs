@@ -110,7 +110,17 @@ public class SubscriptionExpirationWorker : BackgroundService
                     {
                         user.DowngradeToFree();
 
-                        var expiredMsg = "Gói Premium của bạn đã hết hạn.";
+                        // Khóa toàn bộ các sản phẩm theo dõi giá để ngừng cào giá và bảo vệ tài nguyên server
+                        var userTrackings = await context.PriceTrackings
+                            .Where(pt => pt.UserId == user.Id && pt.IsActive)
+                            .ToListAsync(stoppingToken);
+
+                        foreach (var pt in userTrackings)
+                        {
+                            pt.LockDueToPremiumExpiration();
+                        }
+
+                        var expiredMsg = "Gói Premium của bạn đã hết hạn. Danh sách sản phẩm theo dõi giá đã được tạm khóa.";
                         var notification = new Notification(
                             user.Id,
                             title: "Gói Premium đã hết hạn",

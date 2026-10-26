@@ -37,9 +37,10 @@ public class SyncTrackedProductPricesCommandHandler : IRequestHandler<SyncTracke
         var sw = Stopwatch.StartNew();
         var result = new SyncTrackedProductPricesResultDto();
 
-        // 1. Chỉ lấy các ProductId ĐANG CÓ NGƯỜI BẤM THEO DÕI
+        // 1. Chỉ lấy các ProductId ĐANG CÓ NGƯỜI BẤM THEO DÕI CÒN HẠN (không bị khóa hay hết hạn 14 ngày)
+        var now = DateTime.UtcNow;
         var trackedProductIds = await _context.PriceTrackings
-            .Where(pt => pt.IsActive)
+            .Where(pt => pt.IsActive && !pt.IsLocked && (!pt.ExpiresAt.HasValue || pt.ExpiresAt.Value > now))
             .Select(pt => pt.ProductId)
             .Distinct()
             .ToListAsync(cancellationToken);

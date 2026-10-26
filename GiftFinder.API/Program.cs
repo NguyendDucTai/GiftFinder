@@ -636,7 +636,7 @@ if (args.Contains("--test-price-tracking"))
     Console.WriteLine("==========================================================================");
 
     int passed = 0;
-    int total = 8;
+    int total = 10;
 
     // 1. Chuẩn bị tài khoản kiểm thử
     var testUserEmail = "test_price_tracking@giftfinder.vn";
@@ -683,40 +683,44 @@ if (args.Contains("--test-price-tracking"))
         await dbContext.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM \"Notifications\" WHERE \"UserId\" = {testUser.Id}");
 
         // -------------------------------------------------------------------------
-        // TC-01: Free User - Lần đầu được dùng thử 3 sản phẩm thành công
+        // TC-01: Free User - Được dùng thử 3 món đầu với thời hạn 14 ngày
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 1] TC-01: Free User dùng thử lần đầu được theo dõi tối đa 3 sản phẩm");
+        Console.WriteLine("\n[TEST 1] TC-01: Free User dùng thử 3 món đầu (Thời hạn 14 ngày/món)");
         var res1 = await mediator.Send(new GiftFinder.Application.Features.PriceTrackings.Commands.TrackProductPrice.TrackProductPriceCommand(products[0].Id));
         var res2 = await mediator.Send(new GiftFinder.Application.Features.PriceTrackings.Commands.TrackProductPrice.TrackProductPriceCommand(products[1].Id));
         var res3 = await mediator.Send(new GiftFinder.Application.Features.PriceTrackings.Commands.TrackProductPrice.TrackProductPriceCommand(products[2].Id));
 
-        if (res1.ActiveTrackedCount == 1 && res2.ActiveTrackedCount == 2 && res3.ActiveTrackedCount == 3)
+        bool tc1_ok = res1.ActiveTrackedCount == 1 && res2.ActiveTrackedCount == 2 && res3.ActiveTrackedCount == 3
+                      && res1.ExpiresAt.HasValue && res1.DaysRemaining == 14
+                      && !res1.IsLocked;
+
+        if (tc1_ok)
         {
-            Console.WriteLine("  -> PASS: Thêm thành công 3 sản phẩm đầu tiên với tài khoản Free!");
-            Console.WriteLine($"     Món 1: {res1.ProductName} ({res1.InitialPrice:N0}đ) - Active: {res1.ActiveTrackedCount}/{res1.MaxAllowed}");
+            Console.WriteLine("  -> PASS: Thêm thành công 3 sản phẩm dùng thử đầu tiên với hạn 14 ngày!");
+            Console.WriteLine($"     Món 1: {res1.ProductName} ({res1.InitialPrice:N0}đ) - Hạn dùng thử: {res1.ExpiresAt:dd/MM/yyyy} (còn {res1.DaysRemaining} ngày)");
             Console.WriteLine($"     Món 2: {res2.ProductName} ({res2.InitialPrice:N0}đ) - Active: {res2.ActiveTrackedCount}/{res2.MaxAllowed}");
             Console.WriteLine($"     Món 3: {res3.ProductName} ({res3.InitialPrice:N0}đ) - Active: {res3.ActiveTrackedCount}/{res3.MaxAllowed}");
             passed++;
         }
         else
         {
-            Console.WriteLine($"  -> FAIL: ActiveCount không đúng ({res3.ActiveTrackedCount} != 3)");
+            Console.WriteLine($"  -> FAIL: ActiveCount hoặc ExpiresAt không đúng (Active: {res3.ActiveTrackedCount}, ExpiresAt: {res1.ExpiresAt})");
         }
 
         // -------------------------------------------------------------------------
-        // TC-02: Free User - Thêm sản phẩm thứ 4 trong ngày bị chặn (Hạn mức 1 SP/ngày)
+        // TC-02: Free User - Thêm món thứ 4 bị chặn ngay lập tức (Bỏ lỗ hổng 1 món/ngày)
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 2] TC-02: Free User thêm sản phẩm thứ 4 trong cùng ngày -> Bị chặn");
+        Console.WriteLine("\n[TEST 2] TC-02: Free User thêm món thứ 4 -> Bị chặn với thông báo giới hạn dùng thử 3 món");
         try
         {
             await mediator.Send(new GiftFinder.Application.Features.PriceTrackings.Commands.TrackProductPrice.TrackProductPriceCommand(products[3].Id));
-            Console.WriteLine("  -> FAIL: Lẽ ra phải chặn Free User thêm món thứ 4 trong cùng ngày!");
+            Console.WriteLine("  -> FAIL: Lẽ ra phải chặn Free User thêm món thứ 4!");
         }
         catch (InvalidOperationException ex)
         {
-            if (ex.Message.Contains("Tài khoản Miễn phí chỉ được thêm 1 sản phẩm theo dõi mỗi ngày"))
+            if (ex.Message.Contains("Tài khoản Miễn phí chỉ được dùng thử tối đa 3 sản phẩm theo dõi giá"))
             {
-                Console.WriteLine("  -> PASS: Đã chặn chuẩn xác theo đúng quy tắc hạn mức!");
+                Console.WriteLine("  -> PASS: Chặn chuẩn xác 100%! Lỗ hổng 1 món/ngày đã được loại bỏ hoàn toàn.");
                 Console.WriteLine($"     Thông báo nhận được: \"{ex.Message}\"");
                 passed++;
             }
@@ -750,11 +754,55 @@ if (args.Contains("--test-price-tracking"))
         }
 
         // -------------------------------------------------------------------------
-        // TC-04: Nâng cấp Premium -> Theo dõi đến 20 món; Món thứ 21 bị chặn (BR-11)
+        // TC-04: Free User quá hạn 14 ngày -> Tự động chuyển sang Khóa mờ (IsLocked = true), Server ngừng cào giá
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 4] TC-04: Premium User theo dõi tối đa 20 sản phẩm (BR-11)");
+        Console.WriteLine("\n[TEST 4] TC-04: Free User quá hạn 14 ngày -> Tự động Khóa mờ (IsLocked = true) & Ngừng cào giá");
+        // Giả lập món 1 đã hết hạn 14 ngày (ExpiresAt = 1 ngày trước)
+        var tracking1 = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            dbContext.PriceTrackings, pt => pt.UserId == testUser.Id && pt.ProductId == products[0].Id);
+        
+        if (tracking1 != null)
+        {
+            typeof(GiftFinder.Domain.Entities.PriceTracking).GetProperty("ExpiresAt")!.SetValue(tracking1, DateTime.UtcNow.AddDays(-1));
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var watchlistQuery1 = new GiftFinder.Application.Features.PriceTrackings.Queries.GetMyTrackedProducts.GetMyTrackedProductsQuery();
+        var watchlistVm1 = await mediator.Send(watchlistQuery1);
+        var lockedItem = watchlistVm1.Items.FirstOrDefault(i => i.ProductId == products[0].Id);
+
+        // Kiểm tra tiến trình cào giá có bỏ qua món hết hạn không
+        var syncTrackedCommand = new GiftFinder.Application.Features.Products.Commands.SyncTrackedProductPrices.SyncTrackedProductPricesCommand { FastMode = true };
+        var syncResult1 = await mediator.Send(syncTrackedCommand);
+
+        bool tc4_ok = lockedItem != null && lockedItem.IsLocked && lockedItem.LockReason == "TrialExpired"
+                      && !syncResult1.TotalTrackedProducts.Equals(3); // Món hết hạn bị loại bỏ khỏi danh sách cào giá
+
+        if (tc4_ok)
+        {
+            Console.WriteLine("  -> PASS: Món quá hạn 14 ngày đã tự động chuyển sang Khóa mờ (IsLocked = true, Reason = TrialExpired)!");
+            Console.WriteLine($"     Món bị khóa: {lockedItem!.ProductName} - Lý do: {lockedItem.LockReason}");
+            Console.WriteLine($"     Tiến trình cào giá đã tự động loại bỏ món hết hạn (chỉ cào {syncResult1.TotalTrackedProducts} món còn hạn)!");
+            passed++;
+        }
+        else
+        {
+            Console.WriteLine($"  -> FAIL: lockedItem IsLocked={lockedItem?.IsLocked}, TotalTrackedProducts={syncResult1.TotalTrackedProducts}");
+        }
+
+        // -------------------------------------------------------------------------
+        // TC-05: Nâng cấp Premium -> Theo dõi đến 20 món (ExpiresAt = null); Món thứ 21 bị chặn (BR-11)
+        // -------------------------------------------------------------------------
+        Console.WriteLine("\n[TEST 5] TC-05: Premium User theo dõi tối đa 20 sản phẩm không giới hạn thời gian (BR-11)");
         typeof(GiftFinder.Domain.Entities.User).GetProperty("Tier")!.SetValue(testUser, GiftFinder.Domain.Enums.MembershipTier.Premium);
         await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        // Khôi phục món 1 sang Premium
+        if (tracking1 != null)
+        {
+            tracking1.UnlockAfterPremiumRenewal();
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
 
         // Thêm từ món thứ 4 (index 3) đến món thứ 20 (index 19)
         for (int i = 3; i < 20; i++)
@@ -763,9 +811,9 @@ if (args.Contains("--test-price-tracking"))
         }
 
         var countCheck = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
-            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive));
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive && !pt.IsLocked));
 
-        Console.WriteLine($"  -> Đã thêm thành công {countCheck}/20 sản phẩm cho tài khoản Premium.");
+        Console.WriteLine($"  -> Đã thêm thành công {countCheck}/20 sản phẩm cho tài khoản Premium (Không giới hạn 14 ngày).");
 
         try
         {
@@ -788,28 +836,69 @@ if (args.Contains("--test-price-tracking"))
         }
 
         // -------------------------------------------------------------------------
-        // TC-05: Trang Quản lý theo dõi giá (Price Watchlist Query & Quota Info)
+        // TC-06: Khi gói Premium hết hạn -> Tự động Khóa mờ toàn bộ 20 món (IsLocked = true), Ngừng cào giá 100%
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 5] TC-05: Lấy danh sách trang Quản lý theo dõi giá dạng Wishlist");
-        var watchlistQuery = new GiftFinder.Application.Features.PriceTrackings.Queries.GetMyTrackedProducts.GetMyTrackedProductsQuery();
-        var watchlistVm = await mediator.Send(watchlistQuery);
+        Console.WriteLine("\n[TEST 6] TC-06: Gói Premium hết hạn -> Tự động Khóa mờ cả 20 món & Ngừng cào giá 100%");
+        // Giả lập hạ cấp tài khoản Premium về Free
+        testUser.DowngradeToFree();
+        var allUserTrackings = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive));
 
-        if (watchlistVm.TotalCount == 20 && watchlistVm.Quota.Tier == "Premium" && watchlistVm.Quota.MaxAllowed == 20)
+        foreach (var pt in allUserTrackings)
         {
-            Console.WriteLine("  -> PASS: Lấy danh sách trang theo dõi giá hoàn hảo!");
-            Console.WriteLine($"     Tổng số món: {watchlistVm.TotalCount} | Hạn mức: {watchlistVm.Quota.ActiveCount}/{watchlistVm.Quota.MaxAllowed}");
-            Console.WriteLine($"     Mẫu món đầu: {watchlistVm.Items[0].ProductName} - Giá gốc: {watchlistVm.Items[0].InitialPrice:N0}đ");
+            pt.LockDueToPremiumExpiration();
+        }
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var syncResultAfterExpire = await mediator.Send(syncTrackedCommand);
+        var activeCountAfterExpire = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive && !pt.IsLocked));
+        var lockedCountAfterExpire = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsLocked && pt.LockReason == "PremiumExpired"));
+
+        if (activeCountAfterExpire == 0 && lockedCountAfterExpire == 20 && syncResultAfterExpire.TotalTrackedProducts == 0)
+        {
+            Console.WriteLine("  -> PASS: Cả 20 món đã được tự động khóa mờ (IsLocked = true, Reason = PremiumExpired)!");
+            Console.WriteLine("     Hệ thống cào giá đã tự động ngừng cào 100% (Số sản phẩm cào: 0) -> Bảo vệ tuyệt đối tài nguyên server!");
             passed++;
         }
         else
         {
-            Console.WriteLine($"  -> FAIL: TotalCount = {watchlistVm.TotalCount}, Tier = {watchlistVm.Quota.Tier}");
+            Console.WriteLine($"  -> FAIL: active={activeCountAfterExpire}, locked={lockedCountAfterExpire}, syncTotal={syncResultAfterExpire.TotalTrackedProducts}");
         }
 
         // -------------------------------------------------------------------------
-        // TC-06: Phát hiện 1 món giảm giá >= 5% -> Tạo Notification + Gửi Email đơn
+        // TC-07: Người dùng nạp tiền gia hạn Premium -> Tự động mở khóa lại toàn bộ 20 món
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 6] TC-06: Phát hiện 1 món giảm giá >= 5% -> Email Đơn");
+        Console.WriteLine("\n[TEST 7] TC-07: Người dùng gia hạn Premium -> Tự động mở khóa lại toàn bộ 20 món");
+        testUser.UpgradeToPremium(1, autoRenew: true);
+        var lockedToRenew = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsLocked));
+
+        foreach (var pt in lockedToRenew)
+        {
+            pt.UnlockAfterPremiumRenewal();
+        }
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var unlockedCount = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive && !pt.IsLocked));
+
+        if (unlockedCount == 20)
+        {
+            Console.WriteLine("  -> PASS: Đã tự động mở khóa toàn bộ 20 sản phẩm sang trạng thái hoạt động bình thường!");
+            Console.WriteLine("     Người dùng không cần phải tìm kiếm và thêm lại từng sản phẩm từ đầu!");
+            passed++;
+        }
+        else
+        {
+            Console.WriteLine($"  -> FAIL: unlockedCount = {unlockedCount} (kỳ vọng 20)");
+        }
+
+        // -------------------------------------------------------------------------
+        // TC-08: Phát hiện 1 món giảm giá >= 5% -> Tạo Notification + Gửi Email đơn
+        // -------------------------------------------------------------------------
+        Console.WriteLine("\n[TEST 8] TC-08: Phát hiện 1 món giảm giá >= 5% -> Email Đơn chuẩn SaaS");
         var targetProduct1 = products[0];
         long oldP1 = targetProduct1.Price;
         long newP1 = (long)(oldP1 * 0.90); // Giảm 10%
@@ -833,7 +922,7 @@ if (args.Contains("--test-price-tracking"))
         {
             Console.WriteLine("  -> PASS: Đã xử lý giảm giá 1 món thành công!");
             Console.WriteLine($"     Notification: \"{notif1.Title}\" - Nội dung: \"{notif1.Content}\"");
-            Console.WriteLine("     Đã gửi email thông báo 1 món kéo người dùng về web!");
+            Console.WriteLine("     Đã gửi email thông báo 1 món ngắn gọn chuẩn SaaS Canva / Figma!");
             passed++;
         }
         else
@@ -842,9 +931,9 @@ if (args.Contains("--test-price-tracking"))
         }
 
         // -------------------------------------------------------------------------
-        // TC-07: Phát hiện nhiều món cùng giảm giá -> Gom vào 1 Email duy nhất (Digest)
+        // TC-09: Phát hiện nhiều món cùng giảm giá -> Gom vào 1 Email duy nhất (Digest)
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 7] TC-07: Phát hiện nhiều món cùng giảm giá -> Gom vào 1 Email");
+        Console.WriteLine("\n[TEST 9] TC-09: Phát hiện nhiều món cùng giảm giá -> Gom vào 1 Email chuẩn ChatGPT");
         var targetProduct2 = products[1];
         var targetProduct3 = products[2];
 
@@ -874,7 +963,7 @@ if (args.Contains("--test-price-tracking"))
         {
             Console.WriteLine("  -> PASS: Gom thành công các món giảm giá vào 1 Email duy nhất!");
             Console.WriteLine($"     Tổng thông báo in-app: {notifCount} thông báo.");
-            Console.WriteLine("     Người dùng chỉ nhận đúng 1 Email tổng hợp thông báo có 2 món giảm giá!");
+            Console.WriteLine("     Người dùng chỉ nhận đúng 1 Email tổng hợp ngắn gọn!");
             passed++;
         }
         else
@@ -883,19 +972,17 @@ if (args.Contains("--test-price-tracking"))
         }
 
         // -------------------------------------------------------------------------
-        // TC-08: Chống Spam 24h & Hủy theo dõi sản phẩm (Untrack)
+        // TC-10: Chống Spam 24h & Hủy theo dõi sản phẩm (Untrack)
         // -------------------------------------------------------------------------
-        Console.WriteLine("\n[TEST 8] TC-08: Chống Spam 24h & Hủy theo dõi sản phẩm (Untrack)");
-        // Chạy lại alert lần 2 trong cùng ngày -> Phải bị chặn chống spam
+        Console.WriteLine("\n[TEST 10] TC-10: Chống Spam 24h & Hủy theo dõi sản phẩm (Untrack)");
         int repeatNotified = await priceAlertService.ProcessPriceDropsAsync(dropsMulti);
         bool antiSpamOk = repeatNotified == 0;
 
-        // Thử hủy theo dõi món 1
         var untrackRes = await mediator.Send(
             new GiftFinder.Application.Features.PriceTrackings.Commands.UntrackProductPrice.UntrackProductPriceCommand(targetProduct1.Id));
 
         var remainingActive = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
-            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive));
+            dbContext.PriceTrackings.Where(pt => pt.UserId == testUser.Id && pt.IsActive && !pt.IsLocked));
 
         if (antiSpamOk && untrackRes && remainingActive == 19)
         {

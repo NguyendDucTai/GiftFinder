@@ -11,4 +11,8 @@ public class TrackProductPriceResultDto
     public string Message { get; set; } = string.Empty;
     public int ActiveTrackedCount { get; set; }
     public int MaxAllowed { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public bool IsLocked { get; set; }
+    public string? LockReason { get; set; }
+    public int? DaysRemaining { get; set; }
 }

@@ -142,6 +142,16 @@ public class ProcessPaymentWebhookCommandHandler : IRequestHandler<ProcessPaymen
         {
             user.UpgradeToPremium(months, autoRenew: true);
 
+            // Tự động mở khóa các sản phẩm theo dõi giá đang bị tạm khóa (nếu có)
+            var lockedTrackings = await _context.PriceTrackings
+                .Where(pt => pt.UserId == user.Id && pt.IsLocked)
+                .ToListAsync(cancellationToken);
+
+            foreach (var pt in lockedTrackings)
+            {
+                pt.UnlockAfterPremiumRenewal();
+            }
+
             // Ghi nhận bản ghi thông báo hệ thống
             var notification = new Notification(
                 user.Id,

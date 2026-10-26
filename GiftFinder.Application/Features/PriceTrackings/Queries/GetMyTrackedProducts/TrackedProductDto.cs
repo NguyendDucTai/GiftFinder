@@ -20,6 +20,12 @@ public class TrackedProductDto
 
     public DateTime TrackedAt { get; set; }
     public DateTime? LastNotifiedAt { get; set; }
+
+    // Quản lý vòng đời hiển thị khóa mờ
+    public bool IsLocked { get; set; }
+    public string? LockReason { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public int? DaysRemaining { get; set; }
 }
 
 public class PriceTrackingQuotaDto
@@ -27,9 +33,10 @@ public class PriceTrackingQuotaDto
     public string Tier { get; set; } = string.Empty;
     public int ActiveCount { get; set; }
     public int MaxAllowed { get; set; }
-    public bool CanAddToday { get; set; }
-    public int RemainingDailyQuota { get; set; }
+    public bool CanAddMore { get; set; }
+    public bool IsTrialExpired { get; set; }
     public string QuotaDescription { get; set; } = string.Empty;
+    public string UpgradePrompt { get; set; } = string.Empty;
 }
 
 public class TrackedProductListVm
@@ -37,5 +44,6 @@ public class TrackedProductListVm
     public PriceTrackingQuotaDto Quota { get; set; } = new();
     public List<TrackedProductDto> Items { get; set; } = new();
     public int TotalCount => Items.Count;
-    public int DroppedCount => Items.Count(i => i.IsPriceDropped);
+    public int DroppedCount => Items.Count(i => i.IsPriceDropped && !i.IsLocked);
+    public int LockedCount => Items.Count(i => i.IsLocked);
 }

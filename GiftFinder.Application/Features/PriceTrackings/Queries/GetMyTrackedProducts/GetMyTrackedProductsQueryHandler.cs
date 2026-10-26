@@ -30,40 +30,71 @@ public class GetMyTrackedProductsQueryHandler : IRequestHandler<GetMyTrackedProd
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             ?? throw new UnauthorizedAccessException("Tài khoản người dùng không tồn tại.");
 
-        // 1. Lấy danh sách sản phẩm đang theo dõi (IsActive == true)
+        // 1. Lấy danh sách sản phẩm theo dõi của user (bao gồm cả active và locked/expired để hiển thị khóa mờ)
         var query = _context.PriceTrackings
             .Include(pt => pt.Product)
-            .Where(pt => pt.UserId == userId && pt.IsActive)
+            .Where(pt => pt.UserId == userId)
             .OrderByDescending(pt => pt.CreatedAt)
             .AsQueryable();
 
         var trackings = await query.ToListAsync(cancellationToken);
 
-        var items = trackings.Select(pt => new TrackedProductDto
+        // Kiểm tra và cập nhật tự động các món dùng thử đã quá 14 ngày
+        var now = DateTime.UtcNow;
+        bool stateChanged = false;
+        foreach (var pt in trackings)
         {
-            TrackingId = pt.Id,
-            ProductId = pt.ProductId,
-            ProductName = pt.Product.Name,
-            ImageUrl = pt.Product.ImageUrl,
-            Source = pt.Product.Source.ToString(),
-            OriginalUrl = pt.Product.OriginalUrl,
-            AffiliateUrl = pt.Product.AffiliateUrl,
-            InitialPrice = pt.InitialPrice,
-            CurrentPrice = pt.Product.Price,
-            TrackedAt = pt.CreatedAt,
-            LastNotifiedAt = pt.LastNotifiedAt
+            if (pt.IsActive && pt.ExpiresAt.HasValue && pt.ExpiresAt.Value <= now)
+            {
+                pt.ExpireTrial();
+                stateChanged = true;
+            }
+        }
+
+        if (stateChanged)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        var items = trackings.Select(pt =>
+        {
+            bool isLocked = pt.IsLocked || (pt.ExpiresAt.HasValue && pt.ExpiresAt.Value <= now);
+            string? lockReason = pt.LockReason ?? (pt.ExpiresAt.HasValue && pt.ExpiresAt.Value <= now ? "TrialExpired" : null);
+            int? daysRemaining = pt.ExpiresAt.HasValue 
+                ? (int)Math.Max(0, Math.Ceiling((pt.ExpiresAt.Value - now).TotalDays)) 
+                : null;
+
+            return new TrackedProductDto
+            {
+                TrackingId = pt.Id,
+                ProductId = pt.ProductId,
+                ProductName = pt.Product.Name,
+                ImageUrl = pt.Product.ImageUrl,
+                Source = pt.Product.Source.ToString(),
+                OriginalUrl = pt.Product.OriginalUrl,
+                AffiliateUrl = pt.Product.AffiliateUrl,
+                InitialPrice = pt.InitialPrice,
+                CurrentPrice = pt.Product.Price,
+                TrackedAt = pt.CreatedAt,
+                LastNotifiedAt = pt.LastNotifiedAt,
+                ExpiresAt = pt.ExpiresAt,
+                IsLocked = isLocked,
+                LockReason = lockReason,
+                DaysRemaining = daysRemaining
+            };
         }).ToList();
 
         if (request.OnlyPriceDropped)
         {
-            items = items.Where(i => i.IsPriceDropped).ToList();
+            items = items.Where(i => i.IsPriceDropped && !i.IsLocked).ToList();
         }
 
         // 2. Tính toán hạn mức Quota
+        int activeCount = items.Count(i => !i.IsLocked);
         var quota = new PriceTrackingQuotaDto
         {
             Tier = user.Tier.ToString(),
-            ActiveCount = items.Count,
+            ActiveCount = activeCount,
             MaxAllowed = user.Tier == MembershipTier.Premium ? 20 : 3
         };
 
@@ -72,30 +103,25 @@ public class GetMyTrackedProductsQueryHandler : IRequestHandler<GetMyTrackedProd
             var totalHistoricalCount = await _context.PriceTrackings
                 .CountAsync(pt => pt.UserId == userId, cancellationToken);
 
-            if (totalHistoricalCount < 3)
+            quota.IsTrialExpired = totalHistoricalCount >= 3 || items.Any(i => i.IsLocked);
+            quota.CanAddMore = totalHistoricalCount < 3;
+            quota.UpgradePrompt = "Nâng cấp gói Premium (chỉ 29.000đ/tháng) để theo dõi 20 sản phẩm không giới hạn thời gian!";
+
+            if (quota.CanAddMore)
             {
-                quota.CanAddToday = true;
-                quota.RemainingDailyQuota = 3 - totalHistoricalCount;
-                quota.QuotaDescription = $"Gói Miễn phí: Bạn đang trong lượt dùng thử ({totalHistoricalCount}/3 sản phẩm đã dùng).";
+                quota.QuotaDescription = $"Gói Miễn phí: Bạn đang trong lượt dùng thử ({totalHistoricalCount}/3 sản phẩm đã dùng, hạn 14 ngày/sản phẩm).";
             }
             else
             {
-                var todayUtc = DateTime.UtcNow.Date;
-                var addedToday = await _context.PriceTrackings
-                    .CountAsync(pt => pt.UserId == userId && pt.CreatedAt >= todayUtc, cancellationToken);
-
-                quota.CanAddToday = addedToday == 0;
-                quota.RemainingDailyQuota = Math.Max(0, 1 - addedToday);
-                quota.QuotaDescription = quota.CanAddToday
-                    ? "Gói Miễn phí: Hôm nay bạn có thể thêm 1 sản phẩm theo dõi."
-                    : "Gói Miễn phí: Bạn đã sử dụng hết lượt thêm hôm nay (1 SP/ngày). Hãy quay lại vào ngày mai hoặc nâng cấp Premium.";
+                quota.QuotaDescription = "Gói Miễn phí: Bạn đã sử dụng hết 3 lượt dùng thử. Vui lòng nâng cấp Premium để tiếp tục theo dõi giá!";
             }
         }
         else // Premium
         {
-            quota.CanAddToday = quota.ActiveCount < 20;
-            quota.RemainingDailyQuota = Math.Max(0, 20 - quota.ActiveCount);
-            quota.QuotaDescription = $"Thành viên Premium ⭐: Bạn đang theo dõi {quota.ActiveCount}/20 sản phẩm.";
+            quota.IsTrialExpired = false;
+            quota.CanAddMore = activeCount < 20;
+            quota.QuotaDescription = $"Thành viên Premium ⭐: Bạn đang theo dõi {activeCount}/20 sản phẩm (Không giới hạn thời gian).";
+            quota.UpgradePrompt = string.Empty;
         }
 
         return new TrackedProductListVm

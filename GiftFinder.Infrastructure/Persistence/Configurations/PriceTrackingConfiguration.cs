@@ -19,6 +19,9 @@ public class PriceTrackingConfiguration : IEntityTypeConfiguration<PriceTracking
         builder.Property(pt => pt.InitialPrice)
             .IsRequired();
 
+        builder.Property(pt => pt.LockReason)
+            .HasMaxLength(50);
+
         builder.HasOne(pt => pt.User)
             .WithMany()
             .HasForeignKey(pt => pt.UserId)

@@ -187,15 +187,22 @@
   - Nếu nhiều món cùng giảm: Gom vào 1 email duy nhất thông báo có `{N} món quà giảm giá` kèm nút CTA **[ Xem các món đang giảm giá ]**.
   - Tự động tạo thông báo in-app `Notifications` (`NotificationType.PriceDrop`).
   - Chống spam 24h: Đánh dấu `LastNotifiedAt`, không gửi lặp lại thông báo cho sản phẩm đã báo trong ngày.
-- **Bộ kiểm thử tự động toàn diện:** CLI `dotnet run --project GiftFinder.API -- --test-price-tracking` vượt qua **8/8 Test Cases (100% PASS)**:
-  - TC-01: Free Welcome Quota (3 món đầu thành công).
-  - TC-02: Free Daily Limit (món thứ 4 trong ngày bị chặn đúng thông báo).
-  - TC-03: Chống trùng lặp theo dõi.
-  - TC-04: Premium Tier (theo dõi 20 món thành công, món 21 bị chặn theo BR-11).
-  - TC-05: Query trang Quản lý theo dõi giá (Price Watchlist + QuotaInfo).
-  - TC-06: Báo giảm giá 1 món (Notification in-app + Email đơn Brevo SMTP).
-  - TC-07: Báo giảm giá nhiều món (Gom vào 1 Email Digest duy nhất).
-  - TC-08: Chống spam 24h (0 email gửi lặp) & Hủy theo dõi thành công.
+- **Mô hình Dùng thử có thời hạn & Khóa mờ chống lạm dụng:**
+  - **Tài khoản Free:** Tặng duy nhất **3 sản phẩm dùng thử** với thời hạn **14 ngày/sản phẩm**. Bỏ hoàn toàn cơ chế 1 sản phẩm/ngày để triệt tiêu lỗ hổng tích lũy 30 sản phẩm/tháng. Khi quá 14 ngày, sản phẩm tự động chuyển sang trạng thái **Khóa mờ (Locked/Expired)**, server **ngừng cào giá 100%** và hiển thị ổ khóa 🔒 cùng nút mời nâng cấp Premium 29k/tháng.
+  - **Tài khoản Premium:** Theo dõi tối đa **20 sản phẩm đồng thời** không giới hạn 14 ngày (BR-11). Khi hết hạn Premium (sau 3 ngày ân hạn), tự động chuyển toàn bộ 20 sản phẩm sang trạng thái **Khóa mờ (Locked/Paused)**, ngừng cào giá hoàn toàn để bảo vệ tài nguyên. Khi người dùng nạp tiền gia hạn, hệ thống tự động mở khóa lại toàn bộ 20 sản phẩm ngay lập tức.
+- **Tiến trình cào ưu tiên thông minh (`--sync-tracked`):** Tự động bỏ qua toàn bộ sản phẩm đã bị khóa hoặc hết hạn dùng thử, chỉ cào các sản phẩm còn hạn hoạt động.
+- **Email thông báo chuẩn SaaS hiện đại:** Tiêu đề ngắn gọn 7-9 từ (Canva, Figma, ChatGPT), làm sạch từ khóa rác Shopee, card ảnh bo tròn kèm nút viên thuốc (pill CTA).
+- **Bộ kiểm thử tự động toàn diện:** CLI `dotnet run --project GiftFinder.API -- --test-price-tracking` vượt qua **10/10 Test Cases (100% PASS)**:
+  - TC-01: Free User dùng thử 3 món đầu với thời hạn 14 ngày/món.
+  - TC-02: Free User thêm món thứ 4 bị chặn ngay (triệt tiêu 1 món/ngày).
+  - TC-03: Chống trùng lặp theo dõi cùng 1 sản phẩm.
+  - TC-04: Free User quá hạn 14 ngày tự động Khóa mờ (IsLocked = true, TrialExpired) & Server ngừng cào giá.
+  - TC-05: Premium User theo dõi 20 món không giới hạn thời gian (BR-11). Món 21 bị chặn.
+  - TC-06: Gói Premium hết hạn tự động Khóa mờ cả 20 món & Ngừng cào giá 100%.
+  - TC-07: Người dùng gia hạn Premium tự động mở khóa lại toàn bộ 20 món (IsActive = true).
+  - TC-08: Báo giảm giá 1 món (Notification in-app + Email đơn Brevo SMTP).
+  - TC-09: Báo giảm giá nhiều món (Gom vào 1 Email Digest duy nhất).
+  - TC-10: Chống spam 24h & Hủy theo dõi thành công.
 
 ---
 

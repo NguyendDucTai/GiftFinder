@@ -34,11 +34,12 @@ public class PriceAlertService : IPriceAlertService
 
         var productIds = priceDrops.Select(p => p.ProductId).Distinct().ToList();
 
-        // 1. Tìm các bản ghi theo dõi giá đang hoạt động cho các sản phẩm này
+        // 1. Tìm các bản ghi theo dõi giá đang hoạt động và chưa hết hạn cho các sản phẩm này
+        var now = DateTime.UtcNow;
         var trackings = await _context.PriceTrackings
             .Include(pt => pt.User)
             .Include(pt => pt.Product)
-            .Where(pt => pt.IsActive && productIds.Contains(pt.ProductId))
+            .Where(pt => pt.IsActive && !pt.IsLocked && (!pt.ExpiresAt.HasValue || pt.ExpiresAt.Value > now) && productIds.Contains(pt.ProductId))
             .ToListAsync(cancellationToken);
 
         if (trackings.Count == 0)

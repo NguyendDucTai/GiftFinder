@@ -40,32 +40,36 @@ public class TrackProductPriceCommandHandler : IRequestHandler<TrackProductPrice
 
         if (existingTracking != null && existingTracking.IsActive && !existingTracking.IsDeleted)
         {
+            if (existingTracking.ExpiresAt.HasValue && existingTracking.ExpiresAt.Value <= DateTime.UtcNow)
+            {
+                existingTracking.ExpireTrial();
+                await _context.SaveChangesAsync(cancellationToken);
+                throw new InvalidOperationException(
+                    "Sản phẩm này đã hết hạn dùng thử 14 ngày. Vui lòng nâng cấp gói Premium (chỉ 29.000đ/tháng) để mở khóa và tiếp tục theo dõi!");
+            }
+
             throw new InvalidOperationException("Sản phẩm này đã có trong danh sách theo dõi giá của bạn.");
         }
 
-        // 2. Kiểm tra hạn mức theo gói cước (Freemium Quota & Premium Limit)
+        // 2. Kiểm tra hạn mức theo gói cước (Freemium 3 Items Trial & Premium 20 Items Limit)
         int maxAllowed = user.Tier == MembershipTier.Premium ? 20 : 3;
+        DateTime? expiresAt = null;
 
         if (user.Tier == MembershipTier.Free)
         {
-            // Đếm tổng số bản ghi đang có từ trước đến nay
+            // Đếm tổng số sản phẩm đã từng tạo theo dõi của người dùng Free
             var totalCreatedCount = await _context.PriceTrackings
                 .CountAsync(pt => pt.UserId == userId, cancellationToken);
 
             if (totalCreatedCount >= 3)
             {
-                // Đã hết 3 lượt ưu đãi dùng thử -> Kiểm tra xem hôm nay đã thêm sản phẩm nào chưa
-                var todayUtc = DateTime.UtcNow.Date;
-                var addedTodayCount = await _context.PriceTrackings
-                    .CountAsync(pt => pt.UserId == userId && pt.CreatedAt >= todayUtc, cancellationToken);
-
-                if (addedTodayCount >= 1)
-                {
-                    throw new InvalidOperationException(
-                        "Tài khoản Miễn phí chỉ được thêm 1 sản phẩm theo dõi mỗi ngày. " +
-                        "Vui lòng quay lại vào ngày mai hoặc nâng cấp Premium để theo dõi không giới hạn ngay bây giờ.");
-                }
+                throw new InvalidOperationException(
+                    "Tài khoản Miễn phí chỉ được dùng thử tối đa 3 sản phẩm theo dõi giá. " +
+                    "Vui lòng nâng cấp gói Premium (chỉ 29.000đ/tháng) để theo dõi 20 sản phẩm không giới hạn thời gian!");
             }
+
+            // Gói Free có hạn dùng thử 14 ngày kể từ khi bấm theo dõi
+            expiresAt = DateTime.UtcNow.AddDays(14);
         }
         else // Premium User
         {
@@ -76,6 +80,9 @@ public class TrackProductPriceCommandHandler : IRequestHandler<TrackProductPrice
             {
                 throw new InvalidOperationException("Bạn đã đạt giới hạn 20 sản phẩm theo dõi giá, vui lòng bỏ theo dõi bớt sản phẩm khác.");
             }
+
+            // Gói Premium không giới hạn thời gian 14 ngày
+            expiresAt = null;
         }
 
         Guid trackingId;
@@ -83,7 +90,7 @@ public class TrackProductPriceCommandHandler : IRequestHandler<TrackProductPrice
         // 3. Khôi phục hoặc tạo mới
         if (existingTracking != null)
         {
-            existingTracking.Reactivate(product.Price);
+            existingTracking.Reactivate(product.Price, expiresAt);
             if (existingTracking.IsDeleted)
             {
                 existingTracking.IsDeleted = false;
@@ -92,7 +99,7 @@ public class TrackProductPriceCommandHandler : IRequestHandler<TrackProductPrice
         }
         else
         {
-            var newTracking = new PriceTracking(userId, request.ProductId, product.Price);
+            var newTracking = new PriceTracking(userId, request.ProductId, product.Price, expiresAt);
             _context.PriceTrackings.Add(newTracking);
             trackingId = newTracking.Id;
         }
@@ -102,15 +109,24 @@ public class TrackProductPriceCommandHandler : IRequestHandler<TrackProductPrice
         var currentActiveCount = await _context.PriceTrackings
             .CountAsync(pt => pt.UserId == userId && pt.IsActive, cancellationToken);
 
+        int? daysRemaining = expiresAt.HasValue ? (int)Math.Max(0, Math.Ceiling((expiresAt.Value - DateTime.UtcNow).TotalDays)) : null;
+        string successMessage = user.Tier == MembershipTier.Free
+            ? "Bắt đầu theo dõi biến động giá thành công (Dùng thử miễn phí 14 ngày)."
+            : "Bắt đầu theo dõi biến động giá thành công (Gói Premium không giới hạn thời gian).";
+
         return new TrackProductPriceResultDto
         {
             Id = trackingId,
             ProductId = product.Id,
             ProductName = product.Name,
             InitialPrice = product.Price,
-            Message = "Bắt đầu theo dõi biến động giá sản phẩm thành công.",
+            Message = successMessage,
             ActiveTrackedCount = currentActiveCount,
-            MaxAllowed = maxAllowed
+            MaxAllowed = maxAllowed,
+            ExpiresAt = expiresAt,
+            IsLocked = false,
+            LockReason = null,
+            DaysRemaining = daysRemaining
         };
     }
 }

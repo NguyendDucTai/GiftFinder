@@ -393,6 +393,9 @@ namespace GiftFinder.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<long>("InitialPrice")
                         .HasColumnType("bigint");
 
@@ -402,11 +405,18 @@ namespace GiftFinder.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastNotifiedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<long?>("LastNotifiedPrice")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("LockReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
