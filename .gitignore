@@ -382,3 +382,7 @@ start_edge_debug.bat
 GiftFinder_UseCase_Specification.docx
 *.docx
 Characters/
+
+frontend/dist/
+frontend/node_modules/
+

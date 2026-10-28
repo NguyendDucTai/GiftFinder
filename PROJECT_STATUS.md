@@ -1,4 +1,4 @@
-# TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
+﻿# TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
 *(Cập nhật lần cuối: 18/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 244 Sản Phẩm Chuẩn 100% Giá Thật & Link Affiliate)*
 
 ---
@@ -232,3 +232,30 @@
    - Tiến độ tổng thể: **25 / 31 Use Cases (~80.6% hoàn thành)**.
    - Toàn bộ Solution biên dịch thành công 100% (**0 Errors, 0 Warnings**).
 2. **Mục tiêu phiên mới:** Triển khai Use Case **UC-25** (Thanh toán gói Featured cho Merchant bằng VietQR) hoặc **UC-04** (Đánh giá phản hồi gợi ý quà từ AI).
+
+
+---
+
+## 🎨 TIẾN ĐỘ PHÁT TRIỂN GIAO DIỆN FRONTEND & TÁI CẤU TRÚC MONOREPO (28/10/2026)
+
+### 1. Phân Tách Thư Mục Dự Án (Monorepo Standard)
+* Đã cấu trúc lại toàn bộ repository thành 2 thư mục độc lập:
+  * **`backend/`**: Toàn bộ mã nguồn C# .NET 8 Clean Architecture (`GiftFinder.API`, `GiftFinder.Application`, `GiftFinder.Domain`, `GiftFinder.Infrastructure`, `GiftFinder.slnx`), kết nối PostgreSQL, VNPAY, Brevo SMTP, Groq AI.
+  * **`frontend/`**: Ứng dụng Web hiện đại React 19 + TypeScript + Vite + Tailwind CSS v4, proxy tự động sang API `http://localhost:5151`.
+* **Kết quả build:**
+  * Backend: `dotnet build` đạt **0 Error(s), 0 Warning(s)**.
+  * Frontend: `npm run build` đạt **0 Error(s)** (`✓ built in 342ms`).
+  * Automated VNPay CLI Tests: **6/6 Test Cases PASS (100%)**.
+
+### 2. Hoàn Thiện Toàn Bộ Landing Page Mới (11 Khối Nội Dung & Widget Chatbot)
+1. **Khối 1: Poster Hero Banner & AI Concierge**: Poster khổ lớn nghệ thuật, ô tìm kiếm AI Typewriter tự gõ gợi ý, viền phát sáng neon thở nhẹ, badges lơ lửng ⭐ `4.9/5` và 🔥 `-25%`, carousel tự động xoay chuyển sau 4.5s.
+2. **Khối 2: Hôm Nay Bạn Đang Tìm Quà Cho Ai?**: Phân loại theo đối tượng người nhận (Cho Nàng, Cho Chàng, Quà Bố Mẹ, Đồng Nghiệp, Bạn Thân, Kỷ Niệm).
+3. **Khối 3: Chọn Quà Đúng Dịp**: Bộ lọc theo ngữ cảnh dịp lễ (Sinh nhật, 20/10 & 8/3, Kỷ niệm ngày yêu, Giáng sinh, Tân gia, Tốt nghiệp).
+4. **Khối 4: Quà Hot Hôm Nay**: Bảng Flash Deals giảm giá tới 35%, đồng hồ đếm ngược thời gian thực (Live Countdown) nhảy từng giây, thanh tiến độ đã bán lấp lánh dải sáng bạc (`shimmerSliding`).
+5. **Khối 5: Sản Phẩm Nổi Bật (Featured Placement)**: Trình diễn các sản phẩm được nhà bán tài trợ đẩy Top (UC-17, UC-24) và hàng tuyển chọn Direct với huy hiệu nổi bật.
+6. **Khối 6: Set Quà Theo Dịp**: 4 Combo hộp quà phối sẵn hoàn chỉnh (nến thơm, hoa khô, thiệp viết tay cá nhân hóa, trà thảo mộc).
+7. **Khối 7: Sản Phẩm Liên Quan & Phụ Kiện Tặng Kèm**: Bán chéo (Cross-selling) các phụ kiện quà tặng (túi quà ép nhũ, thiệp hoa khô viết tay, hộp nhạc gỗ, đèn led đom đóm).
+8. **Khối 8: An Tâm Mua Sắm**: 4 Trụ cột bảo đảm: 100% chính hãng, Cổng thanh toán Quốc gia VNPAY (PCI DSS), Đổi trả 7 ngày, Giao hỏa tốc 2h & viết thiệp.
+9. **Khối 9: Khách Hàng Hài Lòng**: Video unboxing thực tế với nút Play tỏa sóng radar (`rippleRing`) và các đánh giá 5 sao có tích xanh `Khách hàng đã mua ✓`.
+10. **Khối 10: Footer Toàn Diện**: Tem pháp lý Bộ Công Thương, thông tin công ty, liên kết đối tác Shopee, TikTok Shop, VNPAY.
+11. **Khối 11 (Điểm nhấn): Widget Chatbot AI Trợ Lý Tìm Quà**: Nút tròn nổi cố định ở góc dưới bên phải màn hình, có chấm xanh Online và tooltip mời gọi, mở ra popup chat thông minh với các câu hỏi gợi ý nhanh và trả về thẻ sản phẩm tương tác xem chi tiết/mua ngay.
