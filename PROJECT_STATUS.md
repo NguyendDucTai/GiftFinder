@@ -1,5 +1,5 @@
-﻿# TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
-*(Cập nhật lần cuối: 18/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 244 Sản Phẩm Chuẩn 100% Giá Thật & Link Affiliate)*
+# TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
+*(Cập nhật lần cuối: 30/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 244 Sản Phẩm Chuẩn 100% Giá Thật & Link Affiliate - AI Concierge & Smart Rotation Hoàn Thiện)*
 
 ---
 
@@ -23,7 +23,7 @@
   * **Edge Tab Persistence:** Điều hướng về `about:blank` thay vì đóng tab cuối cùng để giữ tiến trình `msedge.exe` và cổng 9222 luôn sống.
   * **Cơ chế Captcha Pause 90s & Âm thanh cảnh báo:** Tự động nhận diện màn hình kéo mảnh ghép (`Verify to Continue`, `Security Check`, `Punish/Verification`), phát tiếng bíp `Console.Beep(1000, 500)` trên Windows, hiển thị banner cảnh báo và dừng tối đa 90s để người dùng kéo thanh trượt trên Edge, sau đó tự động cào giá tiếp.
   * **Fallback Regex vạn năng:** Bóc tách giá số qua regex `\d{1,3}(\.\d{3})+` quét toàn bộ text node nếu class CSS thay đổi. Đảm bảo dán BẤT KỲ link sản phẩm mới nào từ Shopee, TikTok Shop hay Lazada đều tự động nhận diện giá chính xác.
-* **GroqCloud AI (LPU):** Model `openai/gpt-oss-120b`, xử lý hiểu ngôn ngữ tự nhiên tiếng Việt, từ lóng tiền tệ, tự động phân loại tag quà tặng (Đối tượng, Dịp tặng, Sở thích, Cung hoàng đạo).
+* **GroqCloud AI (LPU):** Hỗ trợ chuỗi model fallback tự động: `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`, xử lý hiểu ngôn ngữ tự nhiên tiếng Việt, từ lóng tiền tệ, tự động phân loại tag quà tặng (Đối tượng, Dịp tặng, Sở thích, Cung hoàng đạo).
 * **Email Service:** Brevo SMTP (`smtp-relay.brevo.com:587`).
 
 ---
@@ -259,3 +259,28 @@
 9. **Khối 9: Khách Hàng Hài Lòng**: Video unboxing thực tế với nút Play tỏa sóng radar (`rippleRing`) và các đánh giá 5 sao có tích xanh `Khách hàng đã mua ✓`.
 10. **Khối 10: Footer Toàn Diện**: Tem pháp lý Bộ Công Thương, thông tin công ty, liên kết đối tác Shopee, TikTok Shop, VNPAY.
 11. **Khối 11 (Điểm nhấn): Widget Chatbot AI Trợ Lý Tìm Quà**: Nút tròn nổi cố định ở góc dưới bên phải màn hình, có chấm xanh Online và tooltip mời gọi, mở ra popup chat thông minh với các câu hỏi gợi ý nhanh và trả về thẻ sản phẩm tương tác xem chi tiết/mua ngay.
+
+---
+
+### 3. Tối Ưu Hóa AI Concierge & Thuật Toán Xoay Vòng Thông Minh (30/10/2026)
+
+#### A. Frontend Chat NLU & Thread Isolation (`frontend/src/App.tsx`)
+- **Loại bỏ ép từ khóa sai lệch:** Xóa bỏ hoàn toàn cơ chế regex cứng cũ (như `raw.includes("sk")` ép "skincare" thành "sức khỏe").
+- **Thread Isolation (Cách ly ngữ cảnh):** Khi người dùng chuyển đối tượng nhận quà (ví dụ từ nam sang nữ), hệ thống tự động cắt ngữ cảnh cũ, tránh việc câu hỏi cũ ("cho bạn thân là nam") bị ghép nối làm sai lệch câu hỏi mới.
+- **Bảo toàn từ khóa khi đổi quà (`isAskAnother`):** Khi người dùng bấm *"Món quà khác"*, Frontend giữ nguyên câu truy vấn có nghĩa gần nhất (`lastMeaningfulQuery`) kết hợp truyền danh sách `excludeIds`, giúp sản phẩm liên tục luân chuyển mà không bị mất từ khóa tìm kiếm.
+
+#### B. Backend Skincare & Chống Rò Rỉ Quà Giới Tính (`GetRecommendationsQueryHandler.cs`)
+- **Nhận diện Skincare / Mỹ phẩm:** Bổ sung `userAskedSkincare` nhận diện các từ khóa `skincare`, `dưỡng da`, `mỹ phẩm`, `làm đẹp`, `son`, `makeup`... với điểm cộng ưu tiên mạnh (`+350đ`).
+- **Phân loại giới tính chặt chẽ:** Thêm các chỉ số ngày lễ phụ nữ (`20.10`, `20-10`, `8.3`, `8-3`) vào bộ chỉ báo nữ giới (`femaleProductIndicators`) để ngăn chặn triệt để tình trạng set quà nữ gợi ý cho nam giới.
+
+#### C. Thuật Toán Xoay Vòng Quà Thông Minh (Intelligent Weighted Rotation)
+- **Vấn đề giải quyết:** Khi nhiều người dùng cùng tìm kiếm cùng một nhu cầu (ví dụ 50 người cùng tìm quà cho bố), hệ thống trước đây sẽ luôn trả về duy nhất 1 sản phẩm Top 1 cố định.
+- **Giải pháp:** Triển khai cơ chế Soft Weighted Rotation (`GetOrganicRotationScore` và `GetFeaturedRotationScore`) áp dụng Jitter ngẫu nhiên tỉ lệ thuận với chất lượng sản phẩm (0 đến 15%, tối đa 40 điểm).
+- **Hiệu quả:** Các sản phẩm xuất sắc nhất (như đồng hồ, ví da, yến sào) sẽ thay phiên nhau xuất hiện ở vị trí hàng đầu một cách tự nhiên giữa các phiên tìm kiếm khác nhau, vừa đảm bảo tính đa dạng vừa giữ độ chính xác 100%.
+
+#### D. Quản Lý Scraping & Cập Nhật Giá Khi Deploy Database
+- Hệ thống backend truy vấn trực tiếp DB qua Entity Framework (`.AsNoTracking()`), không dùng cache tĩnh nên mọi thay đổi giá và thêm mới sản phẩm đều có hiệu lực ngay lập tức.
+- **Chiến lược cào giá Playwright khi đã deploy DB:**
+  - Database được đưa lên Cloud (Supabase, Neon, Render...).
+  - Quá trình cào giá Playwright tiếp tục chạy trên máy tính cá nhân (tận dụng IP dân cư và Microsoft Edge thật qua CDP port 9222 để vượt qua WAF Shopee/TikTok và giải Captcha khi cần).
+  - Kết nối thẳng vào Cloud DB bằng cách cập nhật chuỗi `DefaultConnection` trong `appsettings.Development.json`. Giá mới sẽ được đồng bộ trực tiếp lên Cloud.
