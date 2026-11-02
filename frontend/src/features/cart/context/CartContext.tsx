@@ -48,7 +48,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const raw = localStorage.getItem(CART_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      if (!raw) return [];
+      const parsed: CartItem[] = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((i) => !i.platform || i.platform.toUpperCase() === 'DIRECT')
+        : [];
     } catch {
       return [];
     }
@@ -79,6 +83,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       quantity: number = 1,
       variant: string = 'Mặc định'
     ) => {
+      const pform = (product.platform || 'DIRECT').toUpperCase();
+      if (pform !== 'DIRECT') {
+        console.warn('Sản phẩm sàn đối tác (Shopee/TikTok) chỉ mua trực tiếp trên sàn.');
+        return;
+      }
       const pId = product.id || product.name;
       const entryId = `${pId}_${variant}`;
 

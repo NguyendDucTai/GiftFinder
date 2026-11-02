@@ -21,6 +21,8 @@ export interface PagedRecommendationResult {
   pageSize: number;
   isValidIntent: boolean;
   message?: string;
+  directAnswer?: string;
+  intentType?: string;
   interpretedIntent?: {
     relationship?: string;
     occasion?: string;
@@ -39,9 +41,21 @@ export interface PagedRecommendationResult {
 }
 
 export const recommendationService = {
-  async getRecommendations(prompt: string, pageSize: number = 6): Promise<PagedRecommendationResult> {
+  async getRecommendations(
+    prompt: string,
+    pageSize: number = 6,
+    excludeProductIds?: string[],
+    currentProductId?: string,
+    currentProductContext?: string
+  ): Promise<PagedRecommendationResult> {
     const res = await api.get<PagedRecommendationResult>('/Recommendations', {
-      params: { Prompt: prompt, PageSize: pageSize },
+      params: {
+        Prompt: prompt,
+        PageSize: pageSize,
+        ExcludeProductIds: excludeProductIds && excludeProductIds.length > 0 ? excludeProductIds.join(',') : undefined,
+        CurrentProductId: currentProductId || undefined,
+        CurrentProductContext: currentProductContext || undefined,
+      },
     });
     return res.data;
   },

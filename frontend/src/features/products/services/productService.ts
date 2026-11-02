@@ -24,4 +24,23 @@ export const productService = {
       return '';
     }
   },
+
+  // Bật thông báo theo dõi khi giảm giá
+  async trackPriceDrop(productId: string): Promise<{ message?: string }> {
+    const response = await api.post<{ message?: string }>(`/price-tracking/${productId}`);
+    return response.data;
+  },
+
+  // Lấy lịch sử giá thật của sản phẩm
+  async getPriceHistory(productId: string): Promise<{
+    productId: string;
+    productName: string;
+    currentPrice: number;
+    lowestPrice: number;
+    highestPrice: number;
+    history: Array<{ oldPrice: number; newPrice: number; changedAt: string }>;
+  }> {
+    const response = await api.get(`/price-tracking/${productId}/history`);
+    return response.data;
+  },
 };

@@ -19,6 +19,7 @@ interface AuthContextType {
   login: (req: LoginRequest, remember?: boolean) => Promise<AuthResponse>;
   register: (req: RegisterRequest, remember?: boolean) => Promise<AuthResponse>;
   registerMerchant: (req: RegisterMerchantRequest, remember?: boolean) => Promise<AuthResponse>;
+  upgradeToMerchant: (updatedToken: string, shopName: string) => void;
   logout: () => void;
 }
 
@@ -98,6 +99,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  const upgradeToMerchant = (updatedToken: string, shopName: string) => {
+    if (user) {
+      const updatedUser: User = {
+        ...user,
+        role: 'Merchant',
+        shopName,
+      };
+      setToken(updatedToken);
+      setUser(updatedUser);
+      const isLocalStorage = !!localStorage.getItem('token');
+      const storage = isLocalStorage ? localStorage : sessionStorage;
+      storage.setItem('token', updatedToken);
+      storage.setItem('user', JSON.stringify(updatedUser));
+    }
+  };
+
   const roleNormalized = (user?.role?.toString() || '').toLowerCase();
   const isAdmin = roleNormalized === 'admin' || user?.role === 0;
   const isMerchant = roleNormalized === 'merchant' || user?.role === 2;
@@ -115,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       register,
       registerMerchant,
+      upgradeToMerchant,
       logout,
     }),
     [user, token, isLoading, isAdmin, isMerchant, isMember]
