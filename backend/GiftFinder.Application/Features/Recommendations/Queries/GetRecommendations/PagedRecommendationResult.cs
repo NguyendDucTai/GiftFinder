@@ -16,4 +16,8 @@ public class PagedRecommendationResult
     // AI Guardrail: True nếu câu hỏi hợp lệ, False nếu lạc đề/quấy rối
     public bool IsValidIntent { get; set; } = true;
     public string? Message { get; set; }
+
+    // Câu trả lời trực tiếp từ AI Concierge cho các câu hỏi tư vấn / thắc mắc
+    public string? DirectAnswer { get; set; }
+    public string? IntentType { get; set; }
 }
