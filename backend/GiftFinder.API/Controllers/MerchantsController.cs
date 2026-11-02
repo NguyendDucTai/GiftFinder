@@ -28,6 +28,32 @@ public class MerchantsController : ControllerBase
         _mediator = mediator;
     }
 
+    private async Task<IActionResult> ExecuteSafeAsync<T>(Func<Task<T>> action)
+    {
+        try
+        {
+            var result = await action();
+            return Ok(result);
+        }
+        catch (FluentValidation.ValidationException vex)
+        {
+            var msg = string.Join(" ", vex.Errors.Select(e => e.ErrorMessage).Distinct());
+            return BadRequest(new { message = string.IsNullOrWhiteSpace(msg) ? vex.Message : msg });
+        }
+        catch (KeyNotFoundException kex)
+        {
+            return NotFound(new { message = kex.Message });
+        }
+        catch (UnauthorizedAccessException uex)
+        {
+            return Unauthorized(new { message = uex.Message });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>
     /// [UC-06] Nâng cấp tài khoản hiện tại từ Member lên Merchant (Mở gian hàng bán quà)
     /// </summary>
@@ -35,70 +61,64 @@ public class MerchantsController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Register([FromBody] RegisterMerchantCommand command)
     {
-        var result = await _mediator.Send(command);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
     /// Xem thông tin hồ sơ gian hàng của tài khoản Merchant đang đăng nhập
     /// </summary>
     [HttpGet("profile")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> GetProfile()
     {
-        var result = await _mediator.Send(new GetMerchantProfileQuery());
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(new GetMerchantProfileQuery()));
     }
 
     /// <summary>
     /// Cập nhật thông tin hồ sơ gian hàng (Tên shop, SĐT, Email, Giấy phép)
     /// </summary>
     [HttpPut("profile")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateMerchantProfileCommand command)
     {
-        var result = await _mediator.Send(command);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
     /// [UC-19] Báo cáo thống kê hiệu quả gian hàng (Tổng quà, Lượt click Zalo/Web, Quà Featured, Top quà hot)
     /// </summary>
     [HttpGet("dashboard-stats")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> GetDashboardStats()
     {
-        var result = await _mediator.Send(new GetMerchantDashboardStatsQuery());
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(new GetMerchantDashboardStatsQuery()));
     }
 
     /// <summary>
     /// Trợ lý AI đọc tên/mô tả quà để gợi ý Cung hoàng đạo & Tag Dịp/Đối tượng/Sở thích khi Shop đăng hoặc sửa quà tặng
     /// </summary>
     [HttpPost("ai-suggest-tags")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> SuggestTagsAi([FromBody] SuggestProductTagsAiCommand command)
     {
-        var result = await _mediator.Send(command);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
     /// [UC-06] Đối tác đăng sản phẩm quà tặng mới trực tiếp lên GiftFinder (Trạng thái ban đầu: Pending)
     /// </summary>
     [HttpPost("products")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> CreateProduct([FromBody] CreateMerchantProductCommand command)
     {
-        var result = await _mediator.Send(command);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
     /// Lấy danh sách toàn bộ quà tặng của chính gian hàng mình (Hỗ trợ phân trang, lọc Pending / Approved / Rejected)
     /// </summary>
     [HttpGet("my-products")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> GetMyProducts(
         [FromQuery] ProductStatus? status = null,
         [FromQuery] int pageNumber = 1,
@@ -110,45 +130,45 @@ public class MerchantsController : ControllerBase
             PageNumber = pageNumber,
             PageSize = pageSize
         };
-        var result = await _mediator.Send(query);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(query));
     }
 
     /// <summary>
     /// Xem chi tiết 1 sản phẩm quà tặng của gian hàng mình
     /// </summary>
     [HttpGet("products/{id}")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> GetProductById(Guid id)
     {
-        var result = await _mediator.Send(new GetMerchantProductByIdQuery(id));
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(new GetMerchantProductByIdQuery(id)));
     }
 
     /// <summary>
     /// Chỉnh sửa thông tin quà tặng (Nếu sản phẩm đã Approved, sửa đổi sẽ tự động chuyển về Pending để Admin duyệt lại)
     /// </summary>
     [HttpPut("products/{id}")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] UpdateMerchantProductCommand command)
     {
         if (id != command.Id)
         {
             command.Id = id;
         }
-        var result = await _mediator.Send(command);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
     /// Xóa hoặc ẩn quà tặng khỏi gian hàng (Chuyển trạng thái sang Inactive)
     /// </summary>
     [HttpDelete("products/{id}")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
-        var result = await _mediator.Send(new DeleteMerchantProductCommand(id));
-        return Ok(new { Success = result, Message = "Đã ẩn sản phẩm thành công khỏi gian hàng." });
+        return await ExecuteSafeAsync(async () =>
+        {
+            var result = await _mediator.Send(new DeleteMerchantProductCommand(id));
+            return new { Success = result, Message = "Đã ẩn sản phẩm thành công khỏi gian hàng." };
+        });
     }
 
     /// <summary>
@@ -156,7 +176,7 @@ public class MerchantsController : ControllerBase
     /// Trả về đường link chuyển hướng sang VNPAY Sandbox chuẩn mã hóa HMAC-SHA512
     /// </summary>
     [HttpPost("products/{id}/buy-featured")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> BuyFeatured(Guid id, [FromBody] BuyFeaturedRequest? request)
     {
         var command = new BuyFeaturedPlacementCommand
@@ -165,8 +185,7 @@ public class MerchantsController : ControllerBase
             PlanType = request?.PlanType ?? FeaturedPlanType.Weekly,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
         };
-        var result = await _mediator.Send(command);
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
@@ -194,11 +213,10 @@ public class MerchantsController : ControllerBase
     /// Hủy gói hiển thị nổi bật của sản phẩm trước hạn (khi shop hết hàng hoặc tạm ngưng ưu tiên)
     /// </summary>
     [HttpDelete("products/{id}/cancel-featured")]
-    [Authorize(Roles = "Merchant")]
+    [Authorize(Roles = "Merchant,Admin")]
     public async Task<IActionResult> CancelFeatured(Guid id)
     {
-        var result = await _mediator.Send(new CancelFeaturedPlacementCommand(id));
-        return Ok(result);
+        return await ExecuteSafeAsync(() => _mediator.Send(new CancelFeaturedPlacementCommand(id)));
     }
 }
 

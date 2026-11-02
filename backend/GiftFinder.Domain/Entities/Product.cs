@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Common;
+using GiftFinder.Domain.Common;
 using GiftFinder.Domain.Enums;
 
 namespace GiftFinder.Domain.Entities;
@@ -142,7 +142,7 @@ public class Product : BaseAuditableEntity
         OriginalPrice = originalPrice;
 
         // Nếu sản phẩm đã duyệt trước đó, sau khi sửa thông tin sẽ tự động đưa về Pending để Admin duyệt lại (BR-03)
-        if (Status == ProductStatus.Approved)
+        if (Status == ProductStatus.Approved || Status == ProductStatus.Rejected || Status == ProductStatus.Inactive)
         {
             Status = ProductStatus.Pending;
             RejectReason = null;

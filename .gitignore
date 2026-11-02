@@ -386,3 +386,8 @@ Characters/
 frontend/dist/
 frontend/node_modules/
 
+
+*shopee_links*
+*.links
+check_shopee.sql
+

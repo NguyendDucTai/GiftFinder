@@ -40,11 +40,16 @@ public class RegisterMerchantCommandHandler : IRequestHandler<RegisterMerchantCo
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IJwtTokenGenerator _jwtTokenGenerator;
 
-    public RegisterMerchantCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public RegisterMerchantCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        IJwtTokenGenerator jwtTokenGenerator)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _jwtTokenGenerator = jwtTokenGenerator;
     }
 
     public async Task<MerchantProfileDto> Handle(RegisterMerchantCommand request, CancellationToken cancellationToken)
@@ -99,6 +104,12 @@ public class RegisterMerchantCommandHandler : IRequestHandler<RegisterMerchantCo
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        var token = _jwtTokenGenerator.GenerateToken(
+            user.Id.ToString(),
+            user.Email,
+            user.FullName,
+            user.Role.ToString());
+
         return new MerchantProfileDto
         {
             Id = merchant.Id,
@@ -109,7 +120,8 @@ public class RegisterMerchantCommandHandler : IRequestHandler<RegisterMerchantCo
             BusinessLicense = merchant.BusinessLicense,
             IsVerified = merchant.IsVerified,
             VerifiedAt = merchant.VerifiedAt,
-            CreatedAt = merchant.CreatedAt
+            CreatedAt = merchant.CreatedAt,
+            Token = token
         };
     }
 }

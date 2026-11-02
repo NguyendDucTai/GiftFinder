@@ -55,6 +55,12 @@ public class ProductsController : ControllerBase
         var effectiveStatus = status ?? ProductStatus.Approved;
         query = query.Where(p => p.Status == effectiveStatus);
 
+        // Nếu truy vấn danh sách sản phẩm đã duyệt cho giao diện khách hàng -> Chỉ hiển thị sản phẩm đã được gắn Tag (ẩn các sản phẩm chưa có tag để kiểm tra sau)
+        if (effectiveStatus == ProductStatus.Approved)
+        {
+            query = query.Where(p => p.ProductTags.Any());
+        }
+
         var total = await query.CountAsync();
         var safePageSize = Math.Clamp(pageSize, 1, 100);
         var safePage = Math.Max(1, page);

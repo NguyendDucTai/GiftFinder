@@ -11,6 +11,7 @@ public class MerchantProfileDto
     public bool IsVerified { get; set; }
     public DateTime? VerifiedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? Token { get; set; }
 }
 
 public class MerchantProductDto
@@ -31,12 +32,14 @@ public class MerchantProductDto
     public List<Guid> TagIds { get; set; } = new();
     public List<string> TagNames { get; set; } = new();
     public DateTime CreatedAt { get; set; }
+    public string? Token { get; set; }
 }
 
 public class MerchantProductListItemDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public long Price { get; set; }
     public long? OriginalPrice { get; set; }
     public string? ImageUrl { get; set; }
@@ -44,8 +47,12 @@ public class MerchantProductListItemDto
     public string Status { get; set; } = string.Empty;
     public string? RejectReason { get; set; }
     public bool IsFeatured { get; set; }
+    public DateTime? FeaturedUntil { get; set; }
+    public int ClickCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    public List<Guid> TagIds { get; set; } = new();
     public List<string> TagNames { get; set; } = new();
+    public List<string> SuitableZodiacs { get; set; } = new();
 }
 
 public class PagedResult<T>
