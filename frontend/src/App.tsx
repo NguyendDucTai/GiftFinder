@@ -534,6 +534,7 @@ function Header({
   >(null);
   const [userDropdown, setUserDropdown] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
+  const [showBanner2011, setShowBanner2011] = useState(true);
   const navRef = useRef<HTMLDivElement>(null);
   const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -602,6 +603,91 @@ function Header({
   return (
     <>
       <header className="site-header">
+        {showBanner2011 && (
+          <div
+            className="top-banner-2011"
+            role="region"
+            aria-label="Thông báo Ngày Nhà giáo Việt Nam 20/11"
+          >
+            <div
+              className="top-banner-2011-inner"
+              onClick={() => {
+                if (onSelectCategory) {
+                  onSelectCategory(
+                    "Quà 20/11 & Thầy Cô",
+                    "qua-20-11-thay-co",
+                    "Dịp Tặng Quà",
+                  );
+                } else {
+                  go("catalog");
+                }
+              }}
+            >
+              <div className="banner-2011-badge">
+                <span className="banner-2011-icon">🌸</span>
+                <span>CHÀO MỪNG 20/11</span>
+              </div>
+              <div className="banner-2011-marquee-container">
+                <div className="banner-2011-marquee-track">
+                  <span>
+                    🎉 Chúc mừng Ngày Nhà giáo Việt Nam 20/11 — Tri ân Thầy Cô với hơn 50+ món quà tinh tế, trang trọng tuyển chọn từ Shopee & TikTok Shop!
+                  </span>
+                  <span className="banner-separator">•</span>
+                  <span>
+                    🎁 Tặng kèm thiệp chúc mừng ý nghĩa & Hộp quà thiết kế cao cấp
+                  </span>
+                  <span className="banner-separator">•</span>
+                  <span>
+                    🚚 Đặt sớm nhận quà đúng ngày lễ tri ân Thầy Cô
+                  </span>
+                  <span className="banner-separator">•</span>
+                  <span>
+                    🎉 Chúc mừng Ngày Nhà giáo Việt Nam 20/11 — Tri ân Thầy Cô với hơn 50+ món quà tinh tế, trang trọng tuyển chọn từ Shopee & TikTok Shop!
+                  </span>
+                  <span className="banner-separator">•</span>
+                  <span>
+                    🎁 Tặng kèm thiệp chúc mừng ý nghĩa & Hộp quà thiết kế cao cấp
+                  </span>
+                  <span className="banner-separator">•</span>
+                  <span>
+                    🚚 Đặt sớm nhận quà đúng ngày lễ tri ân Thầy Cô
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="banner-2011-cta"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectCategory) {
+                    onSelectCategory(
+                      "Quà 20/11 & Thầy Cô",
+                      "qua-20-11-thay-co",
+                      "Dịp Tặng Quà",
+                    );
+                  } else {
+                    go("catalog");
+                  }
+                }}
+              >
+                <span>Xem quà ngay</span>
+                <span className="banner-cta-arrow">→</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              className="banner-2011-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowBanner2011(false);
+              }}
+              title="Đóng thông báo"
+              aria-label="Đóng thông báo"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="nav-main">
           <button
             className="mobile-menu"
@@ -3120,6 +3206,26 @@ function Home({
     ["Dưới 300k", "300k–500k", "500k–1tr", "Trên 1tr"],
   ];
 
+  // Danh mục từ khóa linh kiện / đồ công nghệ thô cần loại bỏ khỏi các dịp quà kỷ niệm & cảm xúc
+  const commonTechExcludes = [
+    "chuột",
+    "lót chuột",
+    "mouse pad",
+    "bàn phím",
+    "furycube",
+    "tay cầm",
+    "tay cầm chơi game",
+    "quạt",
+    "quạt cầm tay",
+    "tai nghe",
+    "headphone",
+    "earbuds",
+    "cáp sạc",
+    "củ sạc",
+    "webcam",
+    "micro thu âm",
+  ];
+
   // Occasions Configuration & Filtering State
   const occasionConfigs = [
     {
@@ -3150,13 +3256,10 @@ function Home({
         "đèn ngủ",
         "nến thơm",
         "bình giữ nhiệt",
+        "cốc",
+        "bó hoa",
       ],
-      excludeKeywords: [
-        "chuột gaming",
-        "bàn phím cơ",
-        "furycube",
-        "tai nghe gaming",
-      ],
+      excludeKeywords: [...commonTechExcludes],
     },
     {
       id: "sinh-nhat",
@@ -3174,8 +3277,9 @@ function Home({
         "đèn ngủ",
         "hộp quà",
         "quà sinh nhật",
+        "cốc sinh nhật",
       ],
-      excludeKeywords: ["chuột gaming", "bàn phím cơ"],
+      excludeKeywords: [...commonTechExcludes],
     },
     {
       id: "20-10-8-3",
@@ -3201,12 +3305,12 @@ function Home({
         "nến thơm",
       ],
       excludeKeywords: [
+        ...commonTechExcludes,
         "ví nam",
         "thắt lưng nam",
         "dây nịt nam",
         "cạo râu",
         "tông đơ",
-        "chuột gaming",
       ],
     },
     {
@@ -3231,7 +3335,7 @@ function Home({
         "pha lê",
         "set quà",
       ],
-      excludeKeywords: ["chuột gaming", "bàn phím cơ"],
+      excludeKeywords: [...commonTechExcludes],
     },
     {
       id: "giang-sinh",
@@ -3253,7 +3357,7 @@ function Home({
         "ly sứ",
         "nến thơm",
       ],
-      excludeKeywords: ["chuột gaming", "bàn phím"],
+      excludeKeywords: [...commonTechExcludes],
     },
     {
       id: "tan-gia",
@@ -3277,7 +3381,7 @@ function Home({
         "nến thơm",
         "đồng hồ",
       ],
-      excludeKeywords: ["son môi", "chuột gaming", "bàn phím", "tai nghe"],
+      excludeKeywords: [...commonTechExcludes, "son môi"],
     },
     {
       id: "tot-nghiep",
@@ -3299,7 +3403,7 @@ function Home({
         "gấu tốt nghiệp",
         "đồng hồ",
       ],
-      excludeKeywords: ["son môi", "chuột gaming"],
+      excludeKeywords: [...commonTechExcludes, "son môi"],
     },
   ];
 
@@ -3309,12 +3413,38 @@ function Home({
     occasionConfigs[0];
 
   const filteredOccasionProducts: ProductItem[] = useMemo(() => {
+    // Hàm nhận diện quà tặng thực thụ (ưu tiên hộp quà, set quà, hoa, nến, cốc, kỷ niệm)
+    const isTrueGift = (p: ProductItem) => {
+      const n = (p.name || "").toLowerCase();
+      const t = (p.tags || []).map((x) => x.toLowerCase());
+      return (
+        n.includes("quà") ||
+        n.includes("set") ||
+        n.includes("hộp") ||
+        n.includes("gift") ||
+        n.includes("nến") ||
+        n.includes("hoa") ||
+        n.includes("cốc") ||
+        n.includes("ly sứ") ||
+        n.includes("bình") ||
+        n.includes("sinh nhật") ||
+        n.includes("kỷ niệm") ||
+        n.includes("thiệp") ||
+        n.includes("pha lê") ||
+        n.includes("đèn ngủ") ||
+        n.includes("gấu") ||
+        n.includes("son") ||
+        n.includes("sổ") ||
+        t.some((tag) => tag.includes("quà") || tag.includes("decor") || tag.includes("mỹ phẩm"))
+      );
+    };
+
     // 1. Lọc sản phẩm thỏa tiêu chí của dịp
     const matched = products.filter((p: ProductItem) => {
       const pName = (p.name || "").toLowerCase();
       const pTags = (p.tags || []).map((t) => t.toLowerCase());
 
-      // Loại trừ từ khóa không phù hợp
+      // Loại trừ từ khóa không phù hợp (chuột, quạt, tai nghe, phím cơ...)
       if (
         activeOccasion.excludeKeywords &&
         activeOccasion.excludeKeywords.some((ex) =>
@@ -3337,18 +3467,25 @@ function Home({
       return matchKeyword;
     });
 
-    // 2. Nếu là "all" (Tất cả), lọc bỏ tech thô (chuột gaming, phím cơ) để ưu tiên quà tặng cảm xúc
-    let candidateList = matched;
-    if (activeOccasion.id === "all") {
-      candidateList = candidateList.filter((p: ProductItem) => {
-        const name = (p.name || "").toLowerCase();
-        return (
-          !name.includes("chuột gaming") &&
-          !name.includes("furycube") &&
-          !name.includes("bàn phím")
-        );
-      });
+    // 2. Sắp xếp ưu tiên các món quà tặng cảm xúc, chuẩn dịp lên hàng đầu
+    const prioritized = [...matched].sort((a, b) => {
+      const aGift = isTrueGift(a) ? 1 : 0;
+      const bGift = isTrueGift(b) ? 1 : 0;
+      return bGift - aGift;
+    });
+
+    // Cân bằng đa dạng giữa Shopee và TikTok Shop (xen kẽ)
+    const shopeeItems = prioritized.filter((p) => p.platform === "SHOPEE");
+    const tiktokItems = prioritized.filter((p) => p.platform === "TIKTOK");
+    const balanced: ProductItem[] = [];
+    const maxLen = Math.max(shopeeItems.length, tiktokItems.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (shopeeItems[i]) balanced.push(shopeeItems[i]);
+      if (tiktokItems[i]) balanced.push(tiktokItems[i]);
+      if (balanced.length >= 5) break;
     }
+
+    const candidateList = balanced.length >= 5 ? balanced : prioritized;
 
     // 3. Fallback graceful: Đảm bảo hàng luôn hiển thị đủ 5 món sang xịn, không bao giờ bị cụt
     if (candidateList.length < 5) {
@@ -3357,23 +3494,10 @@ function Home({
         const key = p.id || p.name;
         if (existingIds.has(key)) return false;
         const name = (p.name || "").toLowerCase();
-        if (
-          name.includes("chuột") ||
-          name.includes("furycube") ||
-          name.includes("bàn phím cơ")
-        ) {
+        if (commonTechExcludes.some((ex) => name.includes(ex))) {
           return false;
         }
-        return (
-          name.includes("quà") ||
-          name.includes("set") ||
-          name.includes("đèn") ||
-          name.includes("nến") ||
-          name.includes("bình") ||
-          name.includes("hoa") ||
-          name.includes("gấu") ||
-          (p.tags && p.tags.length > 0)
-        );
+        return isTrueGift(p);
       });
       return [...candidateList, ...backupGifts].slice(0, 5);
     }
@@ -3454,10 +3578,10 @@ function Home({
 
     const themes = [
       ["nến", "tinh dầu", "diffuser", "citta"], // 1. Nến thơm tinh dầu
-      ["thắt lưng", "ví da", "cho nam", "dây nịt", "bóp"], // 2. Quà nam đóng hộp
-      ["sweet", "túi quà", "gấu", "hoa lụa", "giáng sinh", "thiệp"], // 3. Hộp túi quà / Gấu bông / Hoa
+      ["thắt lưng", "ví da", "cho nam", "dây nịt", "bóp", "fanmen"], // 2. Quà nam đóng hộp
+      ["bó hoa", "hoa baby", "hoa sáp", "bông hoa", "hoa hồng", "đèn ngủ"], // 3. Hộp quà bó hoa / Gấu bông / Đèn decor
       ["yến", "trà", "sâm", "sức khỏe", "ấm chén"], // 4. Sức khỏe / Yến sào / Trà quý
-      ["cỏ mềm", "son", "mỹ phẩm", "dưỡng da", "tơ tằm"], // 5. Mỹ phẩm / Dưỡng da
+      ["cỏ mềm", "son", "mỹ phẩm", "dưỡng da", "tơ tằm", "romand"], // 5. Mỹ phẩm / Dưỡng da
     ];
 
     const selectedList: ProductItem[] = [];
@@ -3540,60 +3664,92 @@ function Home({
         !name.includes("lót chuột") &&
         !name.includes("bàn phím") &&
         !name.includes("tai nghe gaming") &&
+        !name.includes("tay cầm") &&
+        !name.includes("quạt") &&
         !name.includes("hoco w113");
       return notTech && pPrice >= 50000;
     });
 
+    const parseSold = (s?: string) => {
+      if (!s) return 0;
+      if (s.endsWith("k")) return parseFloat(s) * 1000;
+      const num = parseInt(s.replace(/\D/g, ""), 10);
+      return isNaN(num) ? 0 : num;
+    };
+
     if (featuredTab === "best_seller") {
-      // Top Bán Chạy: Lọc và sắp xếp theo lượt bán (reviews / sold) cao nhất
-      const parseSold = (s?: string) => {
-        if (!s) return 0;
-        if (s.endsWith("k")) return parseFloat(s) * 1000;
-        const num = parseInt(s.replace(/\D/g, ""), 10);
-        return isNaN(num) ? 0 : num;
-      };
+      // Top Bán Chạy: Lọc và sắp xếp theo lượt bán, cân bằng hiển thị cả Shopee và TikTok Shop
+      const shopeeSorted = giftItems
+        .filter((p) => p.platform === "SHOPEE")
+        .sort((a, b) => parseSold(b.sold) - parseSold(a.sold));
 
-      const sorted = [...giftItems].sort((a, b) => {
-        const soldA = parseSold(a.sold);
-        const soldB = parseSold(b.sold);
-        if (soldB !== soldA) return soldB - soldA;
-        return parseFloat(b.rating || "0") - parseFloat(a.rating || "0");
-      });
-
-      // Lấy 5 món đa dạng (tránh các món tên quá giống nhau)
-      const result: ProductItem[] = [];
-      const seenNames = new Set<string>();
-      for (const p of sorted) {
-        const shortName = p.name.slice(0, 15).toLowerCase();
-        if (!seenNames.has(shortName)) {
-          result.push(p);
-          seenNames.add(shortName);
-          if (result.length >= 5) break;
-        }
-      }
-      return result.length >= 5 ? result : sorted.slice(0, 5);
-    } else {
-      // Đánh giá cao nhất (4.9★ - 5.0★)
-      const topRated = [...giftItems]
-        .filter((p) => parseFloat(p.rating || "0") >= 4.8)
+      const tiktokSorted = giftItems
+        .filter((p) => p.platform === "TIKTOK")
         .sort((a, b) => {
-          const rA = parseFloat(a.rating || "0");
-          const rB = parseFloat(b.rating || "0");
-          if (rB !== rA) return rB - rA;
-          return (b.price || 0) - (a.price || 0);
+          const sDiff = parseSold(b.sold) - parseSold(a.sold);
+          if (sDiff !== 0) return sDiff;
+          return parseFloat(b.rating || "0") - parseFloat(a.rating || "0");
         });
 
+      // Xen kẽ cân bằng đa sàn: Shopee 1, TikTok 1, Shopee 2, TikTok 2, Shopee 3...
       const result: ProductItem[] = [];
       const seenNames = new Set<string>();
-      for (const p of topRated) {
-        const shortName = p.name.slice(0, 15).toLowerCase();
-        if (!seenNames.has(shortName)) {
-          result.push(p);
-          seenNames.add(shortName);
-          if (result.length >= 5) break;
+      const maxLen = Math.max(shopeeSorted.length, tiktokSorted.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (shopeeSorted[i]) {
+          const shortName = shopeeSorted[i].name.slice(0, 15).toLowerCase();
+          if (!seenNames.has(shortName)) {
+            result.push(shopeeSorted[i]);
+            seenNames.add(shortName);
+          }
         }
+        if (result.length >= 5) break;
+
+        if (tiktokSorted[i]) {
+          const shortName = tiktokSorted[i].name.slice(0, 15).toLowerCase();
+          if (!seenNames.has(shortName)) {
+            result.push(tiktokSorted[i]);
+            seenNames.add(shortName);
+          }
+        }
+        if (result.length >= 5) break;
       }
-      return result.length >= 5 ? result : topRated.slice(0, 5);
+
+      return result.length >= 5 ? result : giftItems.slice(0, 5);
+    } else {
+      // Đánh giá cao nhất (4.8★ - 5.0★), cân bằng cả Shopee và TikTok Shop
+      const shopeeTop = giftItems
+        .filter((p) => p.platform === "SHOPEE" && parseFloat(p.rating || "0") >= 4.8)
+        .sort((a, b) => parseFloat(b.rating || "0") - parseFloat(a.rating || "0"));
+
+      const tiktokTop = giftItems
+        .filter((p) => p.platform === "TIKTOK" && parseFloat(p.rating || "0") >= 4.8)
+        .sort((a, b) => (b.price || 0) - (a.price || 0));
+
+      const result: ProductItem[] = [];
+      const seenNames = new Set<string>();
+      const maxLen = Math.max(shopeeTop.length, tiktokTop.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (shopeeTop[i]) {
+          const shortName = shopeeTop[i].name.slice(0, 15).toLowerCase();
+          if (!seenNames.has(shortName)) {
+            result.push(shopeeTop[i]);
+            seenNames.add(shortName);
+          }
+        }
+        if (result.length >= 5) break;
+
+        if (tiktokTop[i]) {
+          const shortName = tiktokTop[i].name.slice(0, 15).toLowerCase();
+          if (!seenNames.has(shortName)) {
+            result.push(tiktokTop[i]);
+            seenNames.add(shortName);
+          }
+        }
+        if (result.length >= 5) break;
+      }
+
+      return result.length >= 5 ? result : giftItems.slice(0, 5);
     }
   }, [products, featuredTab]);
 
@@ -3977,7 +4133,7 @@ function Home({
         <div className="shell">
           <SectionTitle
             eyebrow="CHỈ CÒN HÔM NAY"
-            title="⚡ Quà Hot Hôm Nay - Deal Giảm Đến 35%"
+            title="⚡ Quà Hot Hôm Nay - Deal Giảm Đến 50%"
             action={
               <div
                 className="countdown"
@@ -6833,13 +6989,52 @@ function ProductDetail({
             </>
           ) : (
             <div className="pdp-affiliate-cta-box">
-              <button
-                type="button"
-                className={`pdp-platform-buy-btn ${effectivePlatform === "TIKTOK" ? "tiktok" : "shopee"}`}
-                onClick={() => openAffiliate(currentProduct)}
-              >
-                <span>Mua trên {platformLabel} ↗</span>
-              </button>
+              {effectivePlatform === "TIKTOK" ? (
+                <>
+                  <button
+                    type="button"
+                    className="pdp-platform-buy-btn tiktok"
+                    onClick={() => openAffiliate(currentProduct)}
+                    title="Quét mã QR bằng điện thoại để vào thẳng App TikTok"
+                  >
+                    <span>
+                      {isMobileDevice()
+                        ? "Mua trên TikTok Shop ↗"
+                        : "📱 Mua trên App TikTok (Quét QR)"}
+                    </span>
+                  </button>
+
+                  {!isMobileDevice() && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                      <button
+                        type="button"
+                        className="pdp-link-btn"
+                        onClick={() => {
+                          const url =
+                            currentProduct.affiliateUrl ||
+                            currentProduct.originalUrl ||
+                            "https://shop.tiktok.com";
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        Vẫn muốn mở trên Web máy tính ↗
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="pdp-app-tip-badge">
+                    ⚡ <b>Mẹo mua sắm:</b> TikTok Shop yêu cầu đặt hàng trên ứng dụng điện thoại. Quét mã QR để mở thẳng App & nhận ưu đãi giảm giá!
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="pdp-platform-buy-btn shopee"
+                  onClick={() => openAffiliate(currentProduct)}
+                >
+                  <span>Mua trên {platformLabel} ↗</span>
+                </button>
+              )}
 
               <div className="pdp-secondary-actions">
                 <button
@@ -7899,6 +8094,186 @@ function AffiliateModal({
   );
 }
 
+/**
+ * Kiểm tra xem người dùng có đang truy cập bằng thiết bị di động hay không
+ */
+export function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isMobileUa =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isNarrowScreen = window.innerWidth < 768;
+  return isMobileUa || isNarrowScreen;
+}
+
+/**
+ * Hộp thoại Popup Mã QR Code mua hàng trên ứng dụng di động (QR Deeplink Checkout)
+ * Dành cho TikTok Shop & Shopee để bảo đảm 100% người dùng máy tính chuyển sang App mua được & giữ trọn hoa hồng.
+ */
+function QrPurchaseModal({
+  close,
+  product,
+  targetUrl,
+}: {
+  close: () => void;
+  product?: ProductItem | null;
+  targetUrl?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const p = (product?.platform || "").toUpperCase();
+  const isTikTok = p.includes("TIKTOK");
+  const platformName = isTikTok ? "TikTok Shop" : "Shopee";
+  const finalUrl =
+    targetUrl ||
+    product?.affiliateUrl ||
+    product?.originalUrl ||
+    (isTikTok ? "https://shop.tiktok.com" : "https://shopee.vn");
+
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(finalUrl)}`;
+
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(finalUrl);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = finalUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      console.warn("Copy error:", err);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop qr-modal-backdrop" onMouseDown={close}>
+      <div
+        className={`qr-purchase-modal ${isTikTok ? "theme-tiktok" : "theme-shopee"}`}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="modal-close"
+          onClick={close}
+          aria-label="Đóng"
+        >
+          ✕
+        </button>
+
+        <div className="qr-modal-header">
+          <div className={`qr-platform-badge ${isTikTok ? "tiktok" : "shopee"}`}>
+            {isTikTok ? "🎵 TIKTOK SHOP" : "🛍️ SHOPEE VIỆT NAM"}
+          </div>
+          <h3>Quét mã để mua trên App {platformName}</h3>
+          <p>
+            {isTikTok
+              ? "TikTok Shop yêu cầu đặt hàng trên ứng dụng điện thoại. Quét mã QR để mở thẳng sản phẩm & nhận voucher!"
+              : "Mở ứng dụng Shopee trên điện thoại để nhận mã Freeship Extra và ưu đãi giảm giá độc quyền!"}
+          </p>
+        </div>
+
+        {product && (
+          <div className="qr-product-preview">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="qr-product-img"
+            />
+            <div className="qr-product-info">
+              <div className="qr-product-title">{product.name}</div>
+              <div className="qr-product-meta">
+                <span className="qr-product-price">{money(product.price)}</span>
+                {product.discount && (
+                  <span className="qr-product-discount">{product.discount}</span>
+                )}
+                {Boolean(product.rating) && (
+                  <span className="qr-product-rating">★ {product.rating}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="qr-code-wrapper">
+          <div className="qr-code-frame">
+            <img
+              src={qrCodeUrl}
+              alt={`Mã QR mua trên App ${platformName}`}
+              width={200}
+              height={200}
+              className="qr-code-img"
+            />
+            <div className="qr-corner top-left" />
+            <div className="qr-corner top-right" />
+            <div className="qr-corner bottom-left" />
+            <div className="qr-corner bottom-right" />
+          </div>
+          <div className="qr-scan-badge">
+            <span className="qr-pulse-dot" /> Hướng camera điện thoại để quét mã
+          </div>
+        </div>
+
+        <div className="qr-steps-guide">
+          <div className="qr-step-item">
+            <div className="qr-step-num">1</div>
+            <div className="qr-step-text">
+              Mở <b>Camera</b> / <b>Zalo</b>
+            </div>
+          </div>
+          <div className="qr-step-divider">→</div>
+          <div className="qr-step-item">
+            <div className="qr-step-num">2</div>
+            <div className="qr-step-text">
+              Quét mã <b>QR màn hình</b>
+            </div>
+          </div>
+          <div className="qr-step-divider">→</div>
+          <div className="qr-step-item">
+            <div className="qr-step-num">3</div>
+            <div className="qr-step-text">
+              Vào thẳng <b>App {platformName}</b>
+            </div>
+          </div>
+        </div>
+
+        <div className="qr-actions-box">
+          <button
+            type="button"
+            className={`qr-copy-btn ${copied ? "copied" : ""}`}
+            onClick={handleCopyLink}
+          >
+            {copied ? (
+              <span>✓ Đã sao chép link thành công!</span>
+            ) : (
+              <span>📋 Sao chép link gửi qua Zalo / Messenger</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="qr-web-link-btn"
+            onClick={() => {
+              window.open(finalUrl, "_blank", "noopener,noreferrer");
+              close();
+            }}
+          >
+            Vẫn muốn mở trên Web máy tính ↗
+          </button>
+        </div>
+
+        <div className="qr-footer-trust">
+          <span>🔒 Liên kết đối tác chính thức · Bảo lưu 100% ưu đãi giảm giá & hoa hồng</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Footer() {
   return (
     <footer>
@@ -8114,6 +8489,179 @@ function Footer() {
   );
 }
 
+/* ========================================================
+   FLOATING AUDIO PLAYER COMPONENT (NHẠC NỀN 20/11)
+   ======================================================== */
+function FloatingAudioPlayer({
+  isActive,
+  audioSrc = "/audio/bui-phan-piano.mp3",
+  trackTitle = "Bụi Phấn",
+}: {
+  isActive: boolean;
+  onClose?: () => void;
+  audioSrc?: string;
+  trackTitle?: string;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isWaitingLoop, setIsWaitingLoop] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isActive && audioRef.current) {
+      audioRef.current.volume = 0.18; // Âm lượng 18% êm dịu, nhẹ nhàng làm nhạc nền
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsPlaying(true))
+          .catch((err) => {
+            console.log("Autoplay waiting for user gesture:", err);
+            setIsPlaying(false);
+          });
+      }
+    } else if (!isActive && audioRef.current) {
+      if (loopTimeoutRef.current) {
+        clearTimeout(loopTimeoutRef.current);
+        loopTimeoutRef.current = null;
+      }
+      setIsWaitingLoop(false);
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+
+    return () => {
+      if (loopTimeoutRef.current) {
+        clearTimeout(loopTimeoutRef.current);
+      }
+    };
+  }, [isActive]);
+
+  // Nếu trình duyệt chặn phát nhạc tự động sau khi F5, cú click đầu tiên trên trang sẽ kích hoạt nhạc
+  useEffect(() => {
+    if (!isActive) return;
+    const handleFirstInteraction = () => {
+      if (audioRef.current && audioRef.current.paused) {
+        audioRef.current.volume = 0.18;
+        audioRef.current
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => {});
+      }
+    };
+    window.addEventListener("click", handleFirstInteraction, { once: true });
+    return () => {
+      window.removeEventListener("click", handleFirstInteraction);
+    };
+  }, [isActive]);
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setIsWaitingLoop(true);
+    if (loopTimeoutRef.current) {
+      clearTimeout(loopTimeoutRef.current);
+    }
+    // Dừng đúng 5 giây sau khi hết bài rồi mới phát lại
+    loopTimeoutRef.current = setTimeout(() => {
+      setIsWaitingLoop(false);
+      if (audioRef.current && isActive) {
+        audioRef.current.currentTime = 0;
+        audioRef.current
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch((err) => {
+            console.warn("Replay error:", err);
+            setIsPlaying(false);
+          });
+      }
+    }, 5000);
+  };
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (loopTimeoutRef.current) {
+      clearTimeout(loopTimeoutRef.current);
+      loopTimeoutRef.current = null;
+    }
+    setIsWaitingLoop(false);
+
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.volume = 0.18;
+      audioRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(console.warn);
+    }
+  };
+
+  if (!isActive) return null;
+
+  return (
+    <div
+      className="floating-audio-pill"
+      onClick={togglePlay}
+      role="button"
+      tabIndex={0}
+      title={
+        isPlaying
+          ? "Bấm để tạm dừng nhạc"
+          : isWaitingLoop
+            ? "Đang nghỉ 5s giữa các lần phát (Bấm để phát lại ngay)"
+            : "Bấm để tiếp tục nghe nhạc"
+      }
+      aria-label={`Trình phát nhạc nền: ${trackTitle}`}
+    >
+      <audio
+        ref={audioRef}
+        src={audioSrc}
+        preload="auto"
+        onPlay={() => {
+          setIsPlaying(true);
+          setIsWaitingLoop(false);
+        }}
+        onPause={() => setIsPlaying(false)}
+        onEnded={handleEnded}
+      />
+
+      {/* Đĩa than xoay màu cam hổ phách */}
+      <div className={`audio-disc-icon ${isPlaying ? "spinning" : ""}`}>
+        <span className="audio-disc-note">🎵</span>
+      </div>
+
+      {/* Thông tin bài hát & trạng thái */}
+      <div className="audio-info-box">
+        <div className="audio-track-title">
+          <span>{trackTitle}</span>
+          <span className="audio-speaker-icon">{isPlaying ? "🔊" : "🔇"}</span>
+        </div>
+        <div className="audio-track-status">
+          {isPlaying ? (
+            <span className="status-playing">ĐANG PHÁT NHẠC</span>
+          ) : isWaitingLoop ? (
+            <span className="status-paused">NGHỈ 5 GIÂY...</span>
+          ) : (
+            <span className="status-paused">TẠM DỪNG</span>
+          )}
+        </div>
+      </div>
+
+      {/* Cột sóng Equalizer động nhảy theo điệu nhạc - CHỈ HIỆN KHI ĐANG PHÁT */}
+      {isPlaying && (
+        <div className="audio-equalizer active">
+          <span className="eq-bar bar-1" />
+          <span className="eq-bar bar-2" />
+          <span className="eq-bar bar-3" />
+          <span className="eq-bar bar-4" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const { isAuthenticated, isAdmin, isMerchant } = useAuth();
 
@@ -8162,6 +8710,15 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
     null,
   );
+  const [qrModalData, setQrModalData] = useState<{
+    isOpen: boolean;
+    product: ProductItem | null;
+    targetUrl: string;
+  }>({
+    isOpen: false,
+    product: null,
+    targetUrl: "",
+  });
   const [productsList, setProductsList] =
     useState<ProductItem[]>(defaultProducts);
   const [_loadingProducts, setLoadingProducts] = useState(false);
@@ -8172,13 +8729,29 @@ export default function App() {
     keyword?: string;
     minPrice?: number;
     maxPrice?: number;
-  }>({
-    title: "Tất cả quà tặng tuyển chọn",
-    slug: "tat-ca",
-    parentCategory: "Danh mục quà tặng",
-    keyword: "",
-    minPrice: undefined,
-    maxPrice: undefined,
+  }>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const rawPath = window.location.pathname.replace(/^\/+/, "");
+        if (rawPath === "catalog") {
+          const saved = sessionStorage.getItem("gf_catalog_filter");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.slug) return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    return {
+      title: "Tất cả quà tặng tuyển chọn",
+      slug: "tat-ca",
+      parentCategory: "Danh mục quà tặng",
+      keyword: "",
+      minPrice: undefined,
+      maxPrice: undefined,
+    };
   });
 
   const saveCurrentScroll = () => {
@@ -8200,14 +8773,20 @@ export default function App() {
     minPrice?: number,
     maxPrice?: number,
   ) => {
-    setCatalogFilter({
+    const nextFilter = {
       title,
       slug,
       parentCategory,
       keyword,
       minPrice,
       maxPrice,
-    });
+    };
+    setCatalogFilter(nextFilter);
+    try {
+      sessionStorage.setItem("gf_catalog_filter", JSON.stringify(nextFilter));
+    } catch (e) {
+      console.warn(e);
+    }
     if (page !== "catalog") {
       saveCurrentScroll();
       setPage("catalog");
@@ -8449,11 +9028,12 @@ export default function App() {
   const handleOpenAffiliate = (item?: ProductItem) => {
     const target = item || productsList[0] || defaultProducts[0];
     const p = (target.platform || "").toUpperCase();
+    const isTikTok = p.includes("TIKTOK");
 
     let platformName = "Shopee";
     let defaultStoreUrl = "https://shopee.vn";
 
-    if (p.includes("TIKTOK")) {
+    if (isTikTok) {
       platformName = "TikTok Shop";
       defaultStoreUrl = "https://shop.tiktok.com";
     } else if (p.includes("LAZADA")) {
@@ -8472,16 +9052,28 @@ export default function App() {
     const targetUrl =
       target.affiliateUrl || target.originalUrl || defaultStoreUrl;
 
+    // Ghi nhận click tracking ngầm trong backend
+    if (target.id) {
+      productService.trackAffiliateClick(target.id).catch(console.warn);
+    }
+
+    // Chỉ bật popup QR Code DUY NHẤT với sản phẩm TikTok Shop trên máy tính Desktop
+    // (Vì Shopee trên máy tính vẫn thanh toán và ăn hoa hồng trên Web bình thường)
+    const onMobile = isMobileDevice();
+    if (!onMobile && isTikTok) {
+      setQrModalData({
+        isOpen: true,
+        product: target,
+        targetUrl,
+      });
+      return;
+    }
+
     // Mở trực tiếp sang sàn Shopee / TikTok Shop / Lazada trong tab mới ngay khi click
     try {
       window.open(targetUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
       console.warn("Popup error:", e);
-    }
-
-    // Ghi nhận click tracking ngầm trong backend
-    if (target.id) {
-      productService.trackAffiliateClick(target.id).catch(console.warn);
     }
 
     setAffiliateProduct(target);
@@ -8560,6 +9152,19 @@ export default function App() {
           targetUrl={affiliateUrl}
         />
       )}
+      {qrModalData.isOpen && (
+        <QrPurchaseModal
+          close={() =>
+            setQrModalData({
+              isOpen: false,
+              product: null,
+              targetUrl: "",
+            })
+          }
+          product={qrModalData.product}
+          targetUrl={qrModalData.targetUrl}
+        />
+      )}
       {toastMsg && (
         <div className="app-toast-alert" role="alert">
           <span>{toastMsg}</span>
@@ -8580,6 +9185,20 @@ export default function App() {
           products={productsList}
           openAffiliate={handleOpenAffiliate}
           onSelectProduct={handleOpenProduct}
+        />
+      )}
+      {page !== "auth" && (
+        <FloatingAudioPlayer
+          isActive={
+            page === "catalog" &&
+            (catalogFilter?.slug === "qua-20-11-thay-co" ||
+              catalogFilter?.slug === "qua-20-11" ||
+              catalogFilter?.keyword?.includes("20/11") ||
+              catalogFilter?.title?.toLowerCase().includes("20/11") ||
+              catalogFilter?.title?.toLowerCase().includes("thầy cô"))
+          }
+          audioSrc="/audio/bui-phan-piano.mp3"
+          trackTitle="Bụi Phấn"
         />
       )}
     </>

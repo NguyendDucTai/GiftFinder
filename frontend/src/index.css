@@ -66,6 +66,375 @@ button {
   color: #64748b;
   margin: 0 12px;
 }
+
+/* ========================================================
+   TOP BANNER CHÀO MỪNG 20/11 (VIETNAMESE TEACHER'S DAY)
+   ======================================================== */
+.top-banner-2011 {
+  position: relative;
+  width: 100%;
+  height: 38px;
+  background: linear-gradient(90deg, #7f1d1d 0%, #991b1b 30%, #be123c 65%, #881337 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 13px;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.15), 0 2px 8px rgba(153, 27, 27, 0.25);
+  z-index: 50;
+  user-select: none;
+}
+
+.top-banner-2011-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 40px 0 16px;
+  height: 100%;
+  cursor: pointer;
+  gap: 14px;
+}
+
+.banner-2011-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.banner-2011-icon {
+  display: inline-block;
+  animation: pulseFlower 2s ease-in-out infinite;
+}
+
+@keyframes pulseFlower {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+.banner-2011-marquee-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+}
+
+.banner-2011-marquee-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  gap: 16px;
+  animation: marqueeScroll2011 30s linear infinite;
+}
+
+.top-banner-2011-inner:hover .banner-2011-marquee-track {
+  animation-play-state: paused;
+}
+
+.banner-separator {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+@keyframes marqueeScroll2011 {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.banner-2011-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  color: #991b1b;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.banner-2011-cta:hover {
+  background: #fef2f2;
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  color: #b91c1c;
+}
+
+.banner-cta-arrow {
+  transition: transform 0.2s ease;
+}
+
+.banner-2011-cta:hover .banner-cta-arrow {
+  transform: translateX(2px);
+}
+
+.banner-2011-close {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.banner-2011-close:hover {
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .top-banner-2011 {
+    height: 34px;
+    font-size: 11.5px;
+  }
+  .banner-2011-badge {
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+  .banner-2011-cta {
+    display: none;
+  }
+  .top-banner-2011-inner {
+    padding: 0 32px 0 10px;
+    gap: 8px;
+  }
+}
+
+/* ========================================================
+   FLOATING AUDIO PILL WIDGET (NHẠC NỀN 20/11 - TÔNG TRẮNG TINH TẾ)
+   ======================================================== */
+.floating-audio-pill {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUpFadeAudio 0.35s ease-out;
+}
+
+@keyframes slideUpFadeAudio {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.floating-audio-pill:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.18), 0 0 10px rgba(234, 88, 12, 0.12);
+}
+
+/* Đĩa than xoay nhỏ gọn */
+.audio-disc-icon {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ea580c 0%, #c2410c 60%, #9a3412 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+
+.audio-disc-icon.spinning {
+  animation: spinDisc 4s linear infinite;
+}
+
+@keyframes spinDisc {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.audio-disc-note {
+  font-size: 11px;
+  color: #ffffff;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+
+/* Khối văn bản bài hát */
+.audio-info-box {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.audio-track-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+}
+
+.audio-speaker-icon {
+  font-size: 11px;
+}
+
+.audio-track-status {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.status-playing {
+  color: #ea580c;
+}
+
+.status-paused {
+  color: #94a3b8;
+}
+
+/* Equalizer sóng âm thanh nhỏ gọn - chỉ hiện khi đang phát */
+.audio-equalizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+  padding: 0 2px;
+}
+
+.eq-bar {
+  width: 2.5px;
+  background: #ea580c;
+  border-radius: 2px;
+  transition: height 0.2s ease;
+  height: 3px;
+}
+
+.audio-equalizer.active .bar-1 {
+  animation: eqBounce1 0.8s ease-in-out infinite alternate;
+}
+.audio-equalizer.active .bar-2 {
+  animation: eqBounce2 0.6s ease-in-out infinite alternate;
+}
+.audio-equalizer.active .bar-3 {
+  animation: eqBounce3 0.9s ease-in-out infinite alternate;
+}
+.audio-equalizer.active .bar-4 {
+  animation: eqBounce4 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes eqBounce1 {
+  0% { height: 3px; }
+  100% { height: 11px; }
+}
+@keyframes eqBounce2 {
+  0% { height: 10px; }
+  100% { height: 3px; }
+}
+@keyframes eqBounce3 {
+  0% { height: 4px; }
+  100% { height: 10px; }
+}
+@keyframes eqBounce4 {
+  0% { height: 8px; }
+  100% { height: 3px; }
+}
+
+/* Nút đóng widget */
+.audio-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.audio-dismiss-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Responsive mobile */
+@media (max-width: 640px) {
+  .floating-audio-pill {
+    bottom: 16px;
+    left: 16px;
+    padding: 4px 10px 4px 5px;
+    gap: 6px;
+  }
+  .audio-disc-icon {
+    width: 22px;
+    height: 22px;
+  }
+  .audio-track-title {
+    font-size: 11px;
+  }
+  .audio-track-status {
+    font-size: 8px;
+  }
+}
+
+
+
 .site-header {
   position: sticky;
   top: 0;
@@ -8663,3 +9032,416 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================================
+   QR CODE PURCHASE MODAL (TIKTOK SHOP & SHOPEE APP DEEPLINK)
+   ======================================================== */
+.qr-modal-backdrop {
+  z-index: 120;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  animation: qrFadeIn 0.22s ease-out;
+}
+
+@keyframes qrFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes qrPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.qr-purchase-modal {
+  width: min(480px, 94vw);
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 28px 24px 20px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 30px 90px -15px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(226, 232, 240, 0.8);
+  animation: qrPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.qr-purchase-modal.theme-tiktok {
+  border-top: 5px solid #fe2c55;
+}
+
+.qr-purchase-modal.theme-shopee {
+  border-top: 5px solid #ee4d2d;
+}
+
+.qr-modal-header {
+  margin-bottom: 16px;
+}
+
+.qr-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.qr-platform-badge.tiktok {
+  background: #010101;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(254, 44, 85, 0.25);
+}
+
+.qr-platform-badge.shopee {
+  background: #ee4d2d;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(238, 77, 45, 0.25);
+}
+
+.qr-modal-header h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+.qr-modal-header p {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0 auto;
+  max-width: 380px;
+  line-height: 1.45;
+}
+
+.qr-product-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.qr-product-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: #f1f5f9;
+}
+
+.qr-product-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.qr-product-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.qr-product-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.qr-product-price {
+  font-weight: 800;
+  color: #e11d48;
+}
+
+.qr-product-discount {
+  font-size: 11px;
+  font-weight: 700;
+  background: #ffe4e6;
+  color: #e11d48;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.qr-product-rating {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+.qr-code-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.qr-code-frame {
+  position: relative;
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.12), 0 0 0 1px #e2e8f0;
+  display: inline-block;
+}
+
+.qr-code-img {
+  display: block;
+  width: 200px;
+  height: 200px;
+  border-radius: 12px;
+}
+
+.qr-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 3px solid;
+}
+
+.theme-tiktok .qr-corner {
+  border-color: #fe2c55;
+}
+
+.theme-shopee .qr-corner {
+  border-color: #ee4d2d;
+}
+
+.qr-corner.top-left {
+  top: 6px;
+  left: 6px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+}
+
+.qr-corner.top-right {
+  top: 6px;
+  right: 6px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 6px;
+}
+
+.qr-corner.bottom-left {
+  bottom: 6px;
+  left: 6px;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 6px;
+}
+
+.qr-corner.bottom-right {
+  bottom: 6px;
+  right: 6px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 6px;
+}
+
+.qr-scan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.qr-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: qrPulse 1.8s infinite;
+}
+
+@keyframes qrPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.qr-steps-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border: 1px solid #edf2f7;
+}
+
+.qr-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1;
+}
+
+.qr-step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3px;
+}
+
+.qr-step-text {
+  font-size: 10.5px;
+  color: #475569;
+  line-height: 1.3;
+}
+
+.qr-step-divider {
+  font-size: 12px;
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.qr-actions-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qr-copy-btn {
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.qr-copy-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.qr-copy-btn.copied {
+  background: #15803d;
+}
+
+.qr-web-link-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.qr-web-link-btn:hover {
+  color: #0f172a;
+}
+
+.qr-footer-trust {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* PDP buttons for QR */
+.pdp-app-tip-badge {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #9f1239;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.pdp-link-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px 0;
+  transition: color 0.15s ease;
+}
+
+.pdp-link-btn:hover {
+  color: #0f172a;
+}
+
+.pdp-qr-sub-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px dashed #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pdp-qr-sub-btn:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+}
+
