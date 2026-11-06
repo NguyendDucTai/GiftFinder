@@ -304,7 +304,7 @@ if (args.Contains("--import-file"))
     }
 
     var lines = await File.ReadAllLinesAsync(filePath);
-    var urls = lines.Where(l => !string.IsNullOrWhiteSpace(l) && (l.Contains("shopee.vn") || l.Contains("tiktok.com") || l.Contains("lazada.vn")))
+    var urls = lines.Where(l => !string.IsNullOrWhiteSpace(l) && (l.Contains("shopee.vn") || l.Contains("tiktok.com") || l.Contains("lazada.vn") || l.Contains("shorten.asia") || l.Contains("isclix.com")))
                     .Select(l => l.Trim())
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();

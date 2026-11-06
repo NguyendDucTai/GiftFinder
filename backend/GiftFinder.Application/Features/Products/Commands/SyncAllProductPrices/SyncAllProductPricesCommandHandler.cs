@@ -128,18 +128,34 @@ public class SyncAllProductPricesCommandHandler : IRequestHandler<SyncAllProduct
                         }
                     }
 
-                    if (isPriceChanged)
+                    bool isRatingUpdated = false;
+                    if (scraped.Rating.HasValue && scraped.Rating.Value > 0)
+                    {
+                        var newRating = Math.Clamp(scraped.Rating.Value, 1.0, 5.0);
+                        var newReviews = scraped.TotalReviews ?? (scraped.SoldCount ?? product.TotalReviews);
+                        if (product.Rating != newRating || product.TotalReviews != newReviews)
+                        {
+                            product.SetRating(newRating, newReviews);
+                            isRatingUpdated = true;
+                        }
+                    }
+
+                    if (isPriceChanged || isRatingUpdated)
                     {
                         detail.Status = "Updated";
-                        detail.Message = $"Cập nhật thành công: {detail.OldPrice:N0}đ -> {detail.NewPrice:N0}đ (chênh lệch: {detail.PriceDifference:+#,##0;-#,##0;0}đ).";
+                        var updateMsgs = new List<string>();
+                        if (isPriceChanged) updateMsgs.Add($"Giá: {detail.OldPrice:N0}đ -> {detail.NewPrice:N0}đ");
+                        if (isRatingUpdated) updateMsgs.Add($"Đánh giá: {product.Rating:F1}★ ({product.TotalReviews:N0} reviews)");
+                        if (isImageUpdated) updateMsgs.Add("Cập nhật ảnh");
+                        detail.Message = $"Cập nhật thành công: {string.Join(", ", updateMsgs)}.";
                         result.TotalUpdated++;
                     }
                     else
                     {
                         detail.Status = "Unchanged";
                         detail.Message = isImageUpdated 
-                            ? "Giá không đổi, đã cập nhật ảnh gốc từ sàn." 
-                            : "Giá trên sàn giữ nguyên, không thay đổi.";
+                            ? "Giá và đánh giá không đổi, đã cập nhật ảnh gốc từ sàn." 
+                            : "Dữ liệu trên sàn giữ nguyên, không thay đổi.";
                         result.TotalUnchanged++;
                     }
 

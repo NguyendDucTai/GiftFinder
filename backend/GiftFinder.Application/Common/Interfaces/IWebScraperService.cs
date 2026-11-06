@@ -13,6 +13,9 @@ public class ScrapedProductData
     public string? VideoUrl { get; set; }
     public string? ExternalId { get; set; }
     public string? FinalUrl { get; set; }
+    public double? Rating { get; set; }
+    public int? TotalReviews { get; set; }
+    public int? SoldCount { get; set; }
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
 }

@@ -162,14 +162,20 @@ public class AccesstradeService : IAffiliateNetworkService
                 ExternalProductId = shopeeInfo.ExternalId,
                 ImageUrl = shopeeImage,
                 Description = $"Sản phẩm quà tặng chất lượng cao tuyển chọn từ sàn Shopee: {shopeeTitle}",
-                Rating = 4.9,
-                TotalReviews = 188
+                Rating = (scraped != null && scraped.Rating.HasValue && scraped.Rating.Value > 0)
+                    ? scraped.Rating.Value
+                    : 4.9,
+                TotalReviews = (scraped != null && scraped.TotalReviews.HasValue && scraped.TotalReviews.Value > 0)
+                    ? scraped.TotalReviews.Value
+                    : (scraped?.SoldCount ?? 188)
             };
         }
 
         string? customAffiliateUrl = null;
         if (cleanUrl.Contains("goeco.mobi", StringComparison.OrdinalIgnoreCase) ||
-            cleanUrl.Contains("passio.eco", StringComparison.OrdinalIgnoreCase))
+            cleanUrl.Contains("passio.eco", StringComparison.OrdinalIgnoreCase) ||
+            cleanUrl.Contains("shorten.asia", StringComparison.OrdinalIgnoreCase) ||
+            cleanUrl.Contains("isclix.com", StringComparison.OrdinalIgnoreCase))
         {
             customAffiliateUrl = cleanUrl;
         }
@@ -209,9 +215,9 @@ public class AccesstradeService : IAffiliateNetworkService
         else if (effectiveUrl.Contains("shopee.vn", StringComparison.OrdinalIgnoreCase))
             source = ProductSource.Shopee;
 
-        var title = (playwrightScraped != null && !string.IsNullOrWhiteSpace(playwrightScraped.Title))
+        var title = (playwrightScraped != null && !string.IsNullOrWhiteSpace(playwrightScraped.Title) && !playwrightScraped.Title.Contains("Security Check", StringComparison.OrdinalIgnoreCase))
             ? playwrightScraped.Title
-            : (!string.IsNullOrWhiteSpace(metadata.Title)
+            : (!string.IsNullOrWhiteSpace(metadata.Title) && !metadata.Title.Contains("Security Check", StringComparison.OrdinalIgnoreCase)
                 ? metadata.Title
                 : FormatSlugToTitle(ExtractSlugFromUrl(effectiveUrl)));
 
@@ -252,8 +258,12 @@ public class AccesstradeService : IAffiliateNetworkService
                 : $"URL_{Guid.NewGuid():N}"[..12],
             ImageUrl = imageUrl,
             Description = description,
-            Rating = 4.8,
-            TotalReviews = 168
+            Rating = (playwrightScraped != null && playwrightScraped.Rating.HasValue && playwrightScraped.Rating.Value > 0)
+                ? playwrightScraped.Rating.Value
+                : 4.8,
+            TotalReviews = (playwrightScraped != null && playwrightScraped.TotalReviews.HasValue && playwrightScraped.TotalReviews.Value > 0)
+                ? playwrightScraped.TotalReviews.Value
+                : (playwrightScraped?.SoldCount ?? 168)
         };
     }
 

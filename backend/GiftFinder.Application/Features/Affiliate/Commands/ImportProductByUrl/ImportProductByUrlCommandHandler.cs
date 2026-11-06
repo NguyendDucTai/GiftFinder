@@ -83,7 +83,10 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
 
                 // 2. Bóc tách thông tin sản phẩm và tạo affiliate link (hỗ trợ cào giá thật qua Playwright)
                 var item = await _affiliateService.FetchProductByUrlAsync(url, cancellationToken);
-                if (item == null || item.Price <= 0 || string.IsNullOrWhiteSpace(item.Name) || item.Name.Contains("Verify to Continue"))
+                if (item == null || item.Price <= 0 || string.IsNullOrWhiteSpace(item.Name) || 
+                    item.Name.Contains("Verify to Continue", StringComparison.OrdinalIgnoreCase) ||
+                    item.Name.Contains("Security Check", StringComparison.OrdinalIgnoreCase) ||
+                    item.Name.Equals("Verify", StringComparison.OrdinalIgnoreCase))
                 {
                     result.TotalFailed++;
                     result.Errors.Add($"Không thể trích xuất giá thật hoặc gặp Captcha từ URL: '{url}'.");
@@ -116,6 +119,12 @@ public class ImportProductByUrlCommandHandler : IRequestHandler<ImportProductByU
                         if (!string.IsNullOrWhiteSpace(item.ImageUrl) && (existingProduct.ImageUrl == null || existingProduct.ImageUrl.Contains("unsplash.com") || existingProduct.ImageUrl != item.ImageUrl))
                         {
                             existingProduct.SetImageUrl(item.ImageUrl);
+                            isUpdated = true;
+                        }
+
+                        if (item.Rating > 0 && (existingProduct.Rating != item.Rating || existingProduct.TotalReviews != item.TotalReviews))
+                        {
+                            existingProduct.SetRating(item.Rating, item.TotalReviews);
                             isUpdated = true;
                         }
 

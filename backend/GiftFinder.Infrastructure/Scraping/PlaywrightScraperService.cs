@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -47,7 +48,9 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                lower.Contains("s.shopee.vn") || 
                lower.Contains("tiktok.com") || 
                lower.Contains("vt.tiktok.com") ||
-               lower.Contains("lazada.vn");
+               lower.Contains("lazada.vn") ||
+               lower.Contains("shorten.asia") ||
+               lower.Contains("isclix.com");
     }
 
     public async Task<ScrapedProductData> ScrapeProductAsync(string url, CancellationToken cancellationToken = default)
@@ -161,7 +164,7 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 });
             }
 
-            if (lowerUrl.Contains("tiktok.com") || lowerUrl.Contains("vt.tiktok.com"))
+            if (lowerUrl.Contains("tiktok.com") || lowerUrl.Contains("vt.tiktok.com") || lowerUrl.Contains("shorten.asia") || lowerUrl.Contains("isclix.com"))
             {
                 result = await ScrapeTikTokShopAsync(page, url, cancellationToken);
             }
@@ -215,12 +218,12 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 try { await context.CloseAsync().WaitAsync(TimeSpan.FromSeconds(4)); } catch { }
             }
 
-            // Nghỉ sau khi đóng tab để sàn không kích hoạt rate limit (traffic error)
+            // Nghỉ sau khi đóng tab: Khi dùng Edge CDP thật thì chạy siêu tốc (300-600ms), không cần chờ lâu
             try
             {
-                var delayMs = lowerUrl.Contains("tiktok")
-                    ? Random.Shared.Next(3000, 4200)
-                    : Random.Shared.Next(4000, 5500);
+                var delayMs = _isConnectedOverCdp
+                    ? Random.Shared.Next(300, 600)
+                    : (lowerUrl.Contains("tiktok") ? Random.Shared.Next(3000, 4200) : Random.Shared.Next(4000, 5500));
                 await Task.Delay(delayMs, cancellationToken);
             }
             catch { }
@@ -496,18 +499,18 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
             Timeout = 15000
         });
 
-        // Đợi linh hoạt khi phần tử giá xuất hiện (trả về ngay khi React mount giá xong, không phải chờ cứng 2.5s)
+        // Đợi linh hoạt khi phần tử giá xuất hiện (khi dùng Edge thật thì phản hồi siêu nhanh trong 1.2s)
         try
         {
             await page.WaitForSelectorAsync("span[style*='font-size:36px'], span[style*='font-size: 36px'], div[class*='items-baseline'], [class*='line-through']", new PageWaitForSelectorOptions
             {
-                Timeout = 3000
+                Timeout = _isConnectedOverCdp ? 1500 : 3000
             });
         }
         catch
         {
             // Fallback ngắn nếu trang tải chậm hoặc gặp layout biến thể
-            await page.WaitForTimeoutAsync(800);
+            await page.WaitForTimeoutAsync(_isConnectedOverCdp ? 250 : 800);
         }
 
         // Kiểm tra xem có bị Security Check / Captcha không
@@ -623,10 +626,80 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                         }
                     }
 
+                    // 4. Trích xuất rating & đánh giá thực tế của TikTok Shop
+                    let rating = null;
+                    let totalReviews = null;
+                    let soldCount = null;
+
+                    const allScripts = document.querySelectorAll('script');
+                    for (const s of allScripts) {
+                        const txt = s.innerText || '';
+                        if (txt.includes('rating') || txt.includes('review') || txt.includes('sold')) {
+                            if (!rating) {
+                                const rM = txt.match(/(?:rating_score|ratingValue|rating)[^0-9]+([3-5]\.[0-9])/i);
+                                if (rM) rating = parseFloat(rM[1]);
+                            }
+                            if (!totalReviews) {
+                                const revM = txt.match(/(?:review_count|reviewCount|total_reviews|rating_count)[^0-9]+(\d+)/i);
+                                if (revM) totalReviews = parseInt(revM[1], 10);
+                            }
+                            if (!soldCount) {
+                                const soldM = txt.match(/(?:sold_count|soldCount|sale_count)[^0-9]+(\d+)/i);
+                                if (soldM) soldCount = parseInt(soldM[1], 10);
+                            }
+                        }
+                    }
+
+                    const pageText = document.body ? document.body.innerText : '';
+                    if (!rating) {
+                        const starMatch = pageText.match(/([3-5]\.[0-9])\s*★/);
+                        if (starMatch) rating = parseFloat(starMatch[1]);
+                    }
+
+                    if (!totalReviews) {
+                        const revMatch = pageText.match(/([\d,.]+)\s*(?:global reviews|reviews|đánh giá|nhận xét)/i);
+                        if (revMatch) {
+                            const numClean = revMatch[1].replace(/,/g, '');
+                            if (numClean.toLowerCase().endsWith('k')) {
+                                totalReviews = Math.round(parseFloat(numClean) * 1000);
+                            } else {
+                                const parsed = parseInt(numClean.replace(/\./g, ''), 10);
+                                if (!isNaN(parsed) && parsed > 0) totalReviews = parsed;
+                            }
+                        } else {
+                            const nextToStar = pageText.match(/[3-5]\.[0-9]\s*★\s*([\d,.]+k?)/i);
+                            if (nextToStar) {
+                                const numClean = nextToStar[1].toLowerCase().replace(/,/g, '');
+                                if (numClean.endsWith('k')) {
+                                    totalReviews = Math.round(parseFloat(numClean) * 1000);
+                                } else {
+                                    const parsed = parseInt(numClean, 10);
+                                    if (!isNaN(parsed) && parsed > 0) totalReviews = parsed;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!soldCount) {
+                        const soldMatch = pageText.match(/([\d,.]+k?)\s*(?:sold|đã bán)/i);
+                        if (soldMatch) {
+                            const sClean = soldMatch[1].toLowerCase().replace(/,/g, '');
+                            if (sClean.endsWith('k')) {
+                                soldCount = Math.round(parseFloat(sClean) * 1000);
+                            } else {
+                                const parsed = parseInt(sClean, 10);
+                                if (!isNaN(parsed) && parsed > 0) soldCount = parsed;
+                            }
+                        }
+                    }
+
                     return JSON.stringify({
                         title: title,
                         imageUrl: img,
-                        salePriceText: salePriceText
+                        salePriceText: salePriceText,
+                        rating: rating,
+                        totalReviews: totalReviews,
+                        soldCount: soldCount
                     });
                 }");
                 break;
@@ -655,6 +728,39 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
 
             // Người dùng yêu cầu: Chỉ lấy giá bán hiển thị trực tiếp trên màn hình, không lấy giá gốc ảo bị gạch ngang quá cao
             result.OriginalPrice = null;
+
+            if (root.TryGetProperty("rating", out var rProp) && rProp.ValueKind == JsonValueKind.Number)
+            {
+                var r = rProp.GetDouble();
+                if (r >= 1.0 && r <= 5.0) result.Rating = Math.Round(r, 1);
+            }
+            else if (root.TryGetProperty("rating", out var rPropStr) && rPropStr.ValueKind == JsonValueKind.String)
+            {
+                if (double.TryParse(rPropStr.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var r) && r >= 1.0 && r <= 5.0)
+                {
+                    result.Rating = Math.Round(r, 1);
+                }
+            }
+
+            if (root.TryGetProperty("totalReviews", out var revProp) && revProp.ValueKind == JsonValueKind.Number)
+            {
+                var rev = revProp.GetInt32();
+                if (rev > 0) result.TotalReviews = rev;
+            }
+            else if (root.TryGetProperty("totalReviews", out var revPropStr) && revPropStr.ValueKind == JsonValueKind.String)
+            {
+                var rawRev = revPropStr.GetString() ?? "";
+                if (int.TryParse(Regex.Replace(rawRev, @"[^\d]", ""), out var rev) && rev > 0)
+                {
+                    result.TotalReviews = rev;
+                }
+            }
+
+            if (root.TryGetProperty("soldCount", out var soldProp) && soldProp.ValueKind == JsonValueKind.Number)
+            {
+                var sold = soldProp.GetInt32();
+                if (sold > 0) result.SoldCount = sold;
+            }
         }
 
         if (result.Title.Contains("Security Check", StringComparison.OrdinalIgnoreCase) || result.Title.Contains("Verify", StringComparison.OrdinalIgnoreCase))
@@ -801,8 +907,59 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 }
             }
 
+            // 4. Trích xuất Rating & Reviews Shopee
+            let shopeeRating = null;
+            let shopeeReviews = null;
+            let shopeeSold = null;
+
+            const ldScripts = document.querySelectorAll('script[type=\'application/ld+json\']');
+            for (const s of ldScripts) {
+                try {
+                    const data = JSON.parse(s.innerText);
+                    if (data && data.aggregateRating) {
+                        if (data.aggregateRating.ratingValue) shopeeRating = parseFloat(data.aggregateRating.ratingValue);
+                        if (data.aggregateRating.ratingCount) shopeeReviews = parseInt(data.aggregateRating.ratingCount, 10);
+                    }
+                } catch {}
+            }
+
+            const shopeeText = document.body ? document.body.innerText : '';
+            if (!shopeeRating) {
+                const rateEl = document.querySelector('.pmmxKx, div[class*=\'items-center\'] > div.text-shopee');
+                if (rateEl) {
+                    const val = parseFloat((rateEl.innerText || '').trim());
+                    if (!isNaN(val) && val >= 3.0 && val <= 5.0) shopeeRating = val;
+                }
+            }
+
+            if (!shopeeReviews) {
+                const revMatch = shopeeText.match(/([\d,.]+k?)\s*(?:đánh giá|reviews)/i);
+                if (revMatch) {
+                    const rStr = revMatch[1].toLowerCase().replace(/,/g, '');
+                    shopeeReviews = rStr.endsWith('k') ? Math.round(parseFloat(rStr) * 1000) : parseInt(rStr.replace(/\./g, ''), 10);
+                }
+            }
+
+            if (!shopeeSold) {
+                const soldMatch = shopeeText.match(/([\d,.]+k?)\s*(?:đã bán|sold)/i);
+                if (soldMatch) {
+                    const sStr = soldMatch[1].toLowerCase().replace(/,/g, '');
+                    shopeeSold = sStr.endsWith('k') ? Math.round(parseFloat(sStr) * 1000) : parseInt(sStr.replace(/\./g, ''), 10);
+                }
+            }
+
             const isNotExists = document.body ? (document.body.innerText.includes('Sản phẩm này không tồn tại') || document.body.innerText.includes('Sản phẩm không tồn tại')) : false;
-            return JSON.stringify({ title, img, priceText, matches, isNotExists, pageTitle: document.title });
+            return JSON.stringify({ 
+                title, 
+                img, 
+                priceText, 
+                matches, 
+                isNotExists, 
+                pageTitle: document.title,
+                rating: shopeeRating,
+                totalReviews: shopeeReviews,
+                soldCount: shopeeSold
+            });
         }");
 
         _logger.LogInformation("Shopee Extracted JSON: {Json}", jsonStr);
@@ -869,6 +1026,22 @@ public class PlaywrightScraperService : IWebScraperService, IAsyncDisposable
                 result.Price = foundPrice;
                 result.OriginalPrice = (long)(foundPrice * 1.25);
                 result.IsSuccess = true;
+
+                if (root.TryGetProperty("rating", out var rProp) && rProp.ValueKind == JsonValueKind.Number)
+                {
+                    var r = rProp.GetDouble();
+                    if (r >= 1.0 && r <= 5.0) result.Rating = Math.Round(r, 1);
+                }
+                if (root.TryGetProperty("totalReviews", out var revProp) && revProp.ValueKind == JsonValueKind.Number)
+                {
+                    var rev = revProp.GetInt32();
+                    if (rev > 0) result.TotalReviews = rev;
+                }
+                if (root.TryGetProperty("soldCount", out var soldProp) && soldProp.ValueKind == JsonValueKind.Number)
+                {
+                    var sold = soldProp.GetInt32();
+                    if (sold > 0) result.SoldCount = sold;
+                }
             }
         }
 
