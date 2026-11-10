@@ -7,14 +7,72 @@ export interface MerchantProfile {
   contactEmail: string;
   contactPhone: string;
   businessLicense?: string;
+  pickupProvince?: string;
+  pickupAddress?: string;
   isVerified: boolean;
   verifiedAt?: string;
   createdAt: string;
   token?: string;
 }
 
-export interface MerchantDashboardStats {
+export interface MerchantDailyChartPoint {
+  dateLabel: string;
+  fullDate: string;
+  clicks: number;
+  orders: number;
+  revenue: number;
+}
+
+export interface MerchantOrderItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productImageUrl?: string;
+  variant: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+}
+
+export interface MerchantOrder {
+  id: string;
+  orderCode: string;
+  merchantId: string;
   shopName: string;
+  shopPickupProvince: string;
+  receiverName: string;
+  receiverPhone: string;
+  receiverProvince: string;
+  receiverDistrict: string;
+  receiverAddress: string;
+  deliveryNote?: string;
+  hasGiftWrap: boolean;
+  giftMessage?: string;
+  hidePriceOnPackage: boolean;
+  subtotal: number;
+  shippingFee: number;
+  giftWrapFee: number;
+  discountAmount: number;
+  totalAmount: number;
+  paymentMethod: string;
+  shippingMethod: string; // 'Standard' | 'Express2H'
+  shippingCarrier?: string;
+  trackingCode?: string;
+  status: string; // 'Pending' | 'Packing' | 'Shipping' | 'Completed' | 'Cancelled'
+  createdAt: string;
+  packedAt?: string;
+  shippedAt?: string;
+  completedAt?: string;
+  cancelReason?: string;
+  items: MerchantOrderItem[];
+}
+
+export interface MerchantDashboardStats {
+  merchantId?: string;
+  shopName: string;
+  shopSlug?: string;
+  pickupProvince?: string;
+  pickupAddress?: string;
   isVerified: boolean;
   totalProducts: number;
   approvedProducts: number;
@@ -22,11 +80,28 @@ export interface MerchantDashboardStats {
   rejectedProducts: number;
   featuredProducts: number;
   totalClicks: number;
+
+  // Thống kê Đơn hàng & Doanh thu COD
+  totalOrders?: number;
+  pendingOrders?: number;
+  shippingOrders?: number;
+  completedOrders?: number;
+  cancelledOrders?: number;
+  completedRevenue?: number;
+  pendingRevenue?: number;
+  averageOrderValue?: number;
+  conversionRate?: number;
+
+  dailyChart?: MerchantDailyChartPoint[];
+  recentOrders?: MerchantOrder[];
+
   topProducts: Array<{
     productId: string;
     productName: string;
     price: number;
     clickCount: number;
+    soldCount?: number;
+    revenue?: number;
     isFeatured: boolean;
   }>;
 }
@@ -37,7 +112,8 @@ export interface CreateMerchantProductRequest {
   price: number;
   originalPrice?: number;
   imageUrl?: string;
-  originalUrl: string;
+  originalUrl?: string;
+  stockQuantity?: number;
   tagIds?: string[];
   customTagNames?: string[];
   suitableZodiacs?: string[];
@@ -57,9 +133,11 @@ export interface MerchantProductItem {
   originalUrl: string;
   status: string;
   rejectReason?: string;
+  stockQuantity?: number;
   isFeatured: boolean;
   featuredUntil?: string;
   clickCount: number;
+  soldCount?: number;
   createdAt: string;
   tagIds?: string[];
   tagNames?: string[];
@@ -106,12 +184,36 @@ export interface BuyFeaturedResponse {
   message: string;
 }
 
+export interface CheckoutMerchantOrderRequest {
+  receiverName: string;
+  receiverPhone: string;
+  receiverProvince: string;
+  receiverDistrict: string;
+  receiverAddress: string;
+  deliveryNote?: string;
+  hasGiftWrap: boolean;
+  giftMessage?: string;
+  hidePriceOnPackage: boolean;
+  shippingMethod: 'Standard' | 'Express2H';
+  applyVoucher?: boolean;
+  items: Array<{
+    productId?: string;
+    productName: string;
+    productImageUrl?: string;
+    variant: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
+}
+
 export const merchantService = {
   async register(data: {
     shopName: string;
     contactPhone: string;
     contactEmail?: string;
     businessLicense?: string;
+    pickupProvince?: string;
+    pickupAddress?: string;
   }): Promise<MerchantProfile> {
     const res = await api.post<MerchantProfile>('/Merchants/register', data);
     return res.data;
@@ -127,13 +229,42 @@ export const merchantService = {
     contactEmail: string;
     contactPhone: string;
     businessLicense?: string;
+    pickupProvince?: string;
+    pickupAddress?: string;
   }): Promise<MerchantProfile> {
     const res = await api.put<MerchantProfile>('/Merchants/profile', data);
     return res.data;
   },
 
-  async getDashboardStats(): Promise<MerchantDashboardStats> {
-    const res = await api.get<MerchantDashboardStats>('/Merchants/dashboard-stats');
+  async getDashboardStats(days = 7): Promise<MerchantDashboardStats> {
+    const res = await api.get<MerchantDashboardStats>('/Merchants/dashboard-stats', {
+      params: { days },
+    });
+    return res.data;
+  },
+
+  async getOrders(status?: string): Promise<MerchantOrder[]> {
+    const res = await api.get<MerchantOrder[]>('/Merchants/orders', {
+      params: status && status !== 'All' ? { status } : undefined,
+    });
+    return res.data;
+  },
+
+  async updateOrderStatus(
+    orderId: string,
+    data: {
+      targetStatus: 'Packing' | 'Shipping' | 'Completed' | 'Cancelled';
+      shippingCarrier?: string;
+      trackingCode?: string;
+      cancelReason?: string;
+    }
+  ): Promise<MerchantOrder> {
+    const res = await api.put<MerchantOrder>(`/Merchants/orders/${orderId}/status`, data);
+    return res.data;
+  },
+
+  async checkoutOrder(data: CheckoutMerchantOrderRequest): Promise<MerchantOrder[]> {
+    const res = await api.post<MerchantOrder[]>('/Merchants/orders/checkout', data);
     return res.data;
   },
 

@@ -11,6 +11,10 @@ export interface CartItem {
   platform: string;
   originalUrl?: string;
   affiliateUrl?: string;
+  merchantId?: string;
+  merchantName?: string;
+  merchantProvince?: string;
+  stockQuantity?: number;
 }
 
 interface CartContextType {
@@ -21,6 +25,10 @@ interface CartContextType {
   giftWrapFee: number;
   hasGiftWrap: boolean;
   setHasGiftWrap: (val: boolean) => void;
+  giftMessage: string;
+  setGiftMessage: (val: string) => void;
+  hidePriceOnPackage: boolean;
+  setHidePriceOnPackage: (val: boolean) => void;
   total: number;
   addToCart: (
     product: {
@@ -31,6 +39,10 @@ interface CartContextType {
       platform?: string;
       originalUrl?: string;
       affiliateUrl?: string;
+      merchantId?: string;
+      merchantName?: string;
+      merchantProvince?: string;
+      stockQuantity?: number;
     },
     quantity?: number,
     variant?: string
@@ -59,6 +71,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [hasGiftWrap, setHasGiftWrap] = useState<boolean>(true);
+  const [giftMessage, setGiftMessage] = useState<string>('Chúc bạn luôn rạng rỡ, hạnh phúc và ngập tràn niềm vui! 💕');
+  const [hidePriceOnPackage, setHidePriceOnPackage] = useState<boolean>(true);
 
   // Sync to localStorage
   useEffect(() => {
@@ -79,6 +93,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         platform?: string;
         originalUrl?: string;
         affiliateUrl?: string;
+        merchantId?: string;
+        merchantName?: string;
+        merchantProvince?: string;
+        stockQuantity?: number;
       },
       quantity: number = 1,
       variant: string = 'Mặc định'
@@ -109,6 +127,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             platform: product.platform || 'DIRECT',
             originalUrl: product.originalUrl,
             affiliateUrl: product.affiliateUrl,
+            merchantId: product.merchantId,
+            merchantName: product.merchantName,
+            merchantProvince: product.merchantProvince,
+            stockQuantity: product.stockQuantity,
           };
           return [newItem, ...prev];
         }
@@ -138,7 +160,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
 
-  const shippingFee = useMemo(() => (items.length > 0 ? 25000 : 0), [items]);
+  const shippingFee = useMemo(() => (items.length > 0 ? (subtotal >= 500000 ? 0 : 25000) : 0), [items, subtotal]);
 
   const giftWrapFee = useMemo(() => (hasGiftWrap && items.length > 0 ? 30000 : 0), [hasGiftWrap, items]);
 
@@ -153,6 +175,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       giftWrapFee,
       hasGiftWrap,
       setHasGiftWrap,
+      giftMessage,
+      setGiftMessage,
+      hidePriceOnPackage,
+      setHidePriceOnPackage,
       total,
       addToCart,
       updateQuantity,
@@ -166,6 +192,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       shippingFee,
       giftWrapFee,
       hasGiftWrap,
+      giftMessage,
+      hidePriceOnPackage,
       total,
       addToCart,
       updateQuantity,

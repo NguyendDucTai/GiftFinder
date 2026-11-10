@@ -18,6 +18,10 @@ export interface ProductDto {
   rejectReason?: string;
   rating: number;
   totalReviews: number;
+  stockQuantity?: number;
+  merchantId?: string;
+  merchantName?: string;
+  merchantProvince?: string;
   createdAt?: string;
   tags?: TagDto[];
 }

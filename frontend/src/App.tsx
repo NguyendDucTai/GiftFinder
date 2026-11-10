@@ -7,6 +7,7 @@ import { recommendationService } from "./features/recommendations";
 import { catalogService } from "./features/catalog";
 import { adminService } from "./features/admin/services/adminService";
 import { MerchantPortal } from "./features/merchants/components/MerchantPortal";
+import { merchantService, type MerchantOrder } from "./features/merchants/services/merchantService";
 import heroLuxuryPodium from "./assets/hero-luxury-podium.png";
 import heroTechPodium from "./assets/hero-tech-podium.png";
 import heroWellnessPodium from "./assets/hero-wellness-podium.png";
@@ -28,6 +29,10 @@ export interface ProductItem {
   originalUrl?: string;
   affiliateUrl?: string;
   tags?: string[];
+  merchantId?: string;
+  merchantName?: string;
+  merchantProvince?: string;
+  stockQuantity?: number;
 }
 
 /**
@@ -103,6 +108,10 @@ function mapDtoToProductItem(dto: ProductDto): ProductItem {
     discount: `-${discountPercent}%`,
     originalUrl: dto.originalUrl,
     affiliateUrl: dto.affiliateUrl,
+    merchantId: dto.merchantId,
+    merchantName: dto.merchantName,
+    merchantProvince: dto.merchantProvince,
+    stockQuantity: dto.stockQuantity,
     tags: (dto.tags || []).map((t: any) =>
       typeof t === "string" ? t : t.name,
     ),
@@ -630,28 +639,30 @@ function Header({
               <div className="banner-2011-marquee-container">
                 <div className="banner-2011-marquee-track">
                   <span>
-                    🎉 Chúc mừng Ngày Nhà giáo Việt Nam 20/11 — Tri ân Thầy Cô với hơn 50+ món quà tinh tế, trang trọng tuyển chọn từ Shopee & TikTok Shop!
+                    🎉 Chúc mừng Ngày Nhà giáo Việt Nam 20/11 — Tri ân Thầy Cô
+                    với hơn 50+ món quà tinh tế, trang trọng tuyển chọn từ
+                    Shopee & TikTok Shop!
                   </span>
                   <span className="banner-separator">•</span>
                   <span>
-                    🎁 Tặng kèm thiệp chúc mừng ý nghĩa & Hộp quà thiết kế cao cấp
+                    🎁 Tặng kèm thiệp chúc mừng ý nghĩa & Hộp quà thiết kế cao
+                    cấp
+                  </span>
+                  <span className="banner-separator">•</span>
+                  <span>🚚 Đặt sớm nhận quà đúng ngày lễ tri ân Thầy Cô</span>
+                  <span className="banner-separator">•</span>
+                  <span>
+                    🎉 Chúc mừng Ngày Nhà giáo Việt Nam 20/11 — Tri ân Thầy Cô
+                    với hơn 50+ món quà tinh tế, trang trọng tuyển chọn từ
+                    Shopee & TikTok Shop!
                   </span>
                   <span className="banner-separator">•</span>
                   <span>
-                    🚚 Đặt sớm nhận quà đúng ngày lễ tri ân Thầy Cô
+                    🎁 Tặng kèm thiệp chúc mừng ý nghĩa & Hộp quà thiết kế cao
+                    cấp
                   </span>
                   <span className="banner-separator">•</span>
-                  <span>
-                    🎉 Chúc mừng Ngày Nhà giáo Việt Nam 20/11 — Tri ân Thầy Cô với hơn 50+ món quà tinh tế, trang trọng tuyển chọn từ Shopee & TikTok Shop!
-                  </span>
-                  <span className="banner-separator">•</span>
-                  <span>
-                    🎁 Tặng kèm thiệp chúc mừng ý nghĩa & Hộp quà thiết kế cao cấp
-                  </span>
-                  <span className="banner-separator">•</span>
-                  <span>
-                    🚚 Đặt sớm nhận quà đúng ngày lễ tri ân Thầy Cô
-                  </span>
+                  <span>🚚 Đặt sớm nhận quà đúng ngày lễ tri ân Thầy Cô</span>
                 </div>
               </div>
               <button
@@ -1035,561 +1046,569 @@ function Header({
         </div>
         {currentPage !== "merchant" && (
           <div className={`category-nav ${menu ? "open" : ""}`} ref={navRef}>
-          {/* Dropdown 1: Quà Theo Dịp */}
-          <div
-            className={`nav-dropdown-wrapper ${navDropdown === "occasion" ? "active" : ""}`}
-            onMouseEnter={() => handleMouseEnter("occasion")}
-            onMouseLeave={handleMouseLeave}
-          >
-            <button
-              className={`nav-pill-btn ${navDropdown === "occasion" ? "active" : ""}`}
-              onClick={() =>
-                setNavDropdown(navDropdown === "occasion" ? null : "occasion")
-              }
+            {/* Dropdown 1: Quà Theo Dịp */}
+            <div
+              className={`nav-dropdown-wrapper ${navDropdown === "occasion" ? "active" : ""}`}
               onMouseEnter={() => handleMouseEnter("occasion")}
+              onMouseLeave={handleMouseLeave}
             >
-              <span className="btn-icon">🎁</span>
-              <span>Quà Theo Dịp</span>
-              <span
-                className={`btn-arrow ${navDropdown === "occasion" ? "open" : ""}`}
-              >
-                <Icon name="chevron-down" size={12} />
-              </span>
-            </button>
-
-            {navDropdown === "occasion" && (
-              <div
-                className="category-dropdown-card"
+              <button
+                className={`nav-pill-btn ${navDropdown === "occasion" ? "active" : ""}`}
+                onClick={() =>
+                  setNavDropdown(navDropdown === "occasion" ? null : "occasion")
+                }
                 onMouseEnter={() => handleMouseEnter("occasion")}
               >
-                <div className="category-dropdown-grid">
-                  <div className="category-dropdown-column">
-                    <div className="category-dropdown-heading">
-                      SỰ KIỆN & KỶ NIỆM
-                    </div>
-                    <div className="category-dropdown-list">
-                      {[
-                        {
-                          emoji: "🎁",
-                          label: "Quà Sinh Nhật",
-                          slug: "qua-sinh-nhat",
-                        },
-                        {
-                          emoji: "💖",
-                          label: "Quà Kỷ Niệm",
-                          slug: "qua-ky-niem",
-                        },
-                        {
-                          emoji: "🎓",
-                          label: "Quà Tốt Nghiệp",
-                          slug: "qua-tot-nghiep",
-                        },
-                        {
-                          emoji: "💄",
-                          label: "Quà Valentine",
-                          slug: "qua-valentine",
-                        },
-                        {
-                          emoji: "🌸",
-                          label: "Quà Ngày Của Mẹ",
-                          slug: "qua-ngay-cua-me",
-                        },
-                        {
-                          emoji: "🎉",
-                          label: "Quà Ngày Lễ",
-                          slug: "qua-ngay-le",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          className="category-dropdown-item"
-                          onClick={() => {
-                            setNavDropdown(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(
-                                item.label,
-                                item.slug,
-                                "Quà Theo Dịp",
-                              );
-                            } else {
-                              go("catalog");
-                            }
-                          }}
-                        >
-                          <div className="item-left">
-                            <span className="item-emoji">{item.emoji}</span>
-                            <span className="item-title">{item.label}</span>
-                          </div>
-                          <span className="item-arrow">
-                            <Icon name="chevron" size={12} />
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <span className="btn-icon">🎁</span>
+                <span>Quà Theo Dịp</span>
+                <span
+                  className={`btn-arrow ${navDropdown === "occasion" ? "open" : ""}`}
+                >
+                  <Icon name="chevron-down" size={12} />
+                </span>
+              </button>
 
-                  <div className="category-dropdown-column">
-                    <div className="category-dropdown-heading">
-                      DỊP LỄ & ĐẶC BIỆT
+              {navDropdown === "occasion" && (
+                <div
+                  className="category-dropdown-card"
+                  onMouseEnter={() => handleMouseEnter("occasion")}
+                >
+                  <div className="category-dropdown-grid">
+                    <div className="category-dropdown-column">
+                      <div className="category-dropdown-heading">
+                        SỰ KIỆN & KỶ NIỆM
+                      </div>
+                      <div className="category-dropdown-list">
+                        {[
+                          {
+                            emoji: "🎁",
+                            label: "Quà Sinh Nhật",
+                            slug: "qua-sinh-nhat",
+                          },
+                          {
+                            emoji: "💖",
+                            label: "Quà Kỷ Niệm",
+                            slug: "qua-ky-niem",
+                          },
+                          {
+                            emoji: "🎓",
+                            label: "Quà Tốt Nghiệp",
+                            slug: "qua-tot-nghiep",
+                          },
+                          {
+                            emoji: "💄",
+                            label: "Quà Valentine",
+                            slug: "qua-valentine",
+                          },
+                          {
+                            emoji: "🌸",
+                            label: "Quà Ngày Của Mẹ",
+                            slug: "qua-ngay-cua-me",
+                          },
+                          {
+                            emoji: "🎉",
+                            label: "Quà Ngày Lễ",
+                            slug: "qua-ngay-le",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            className="category-dropdown-item"
+                            onClick={() => {
+                              setNavDropdown(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(
+                                  item.label,
+                                  item.slug,
+                                  "Quà Theo Dịp",
+                                );
+                              } else {
+                                go("catalog");
+                              }
+                            }}
+                          >
+                            <div className="item-left">
+                              <span className="item-emoji">{item.emoji}</span>
+                              <span className="item-title">{item.label}</span>
+                            </div>
+                            <span className="item-arrow">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="category-dropdown-list">
-                      {[
-                        {
-                          emoji: "🥮",
-                          label: "Quà Trung Thu",
-                          slug: "qua-trung-thu",
-                        },
-                        {
-                          emoji: "🎄",
-                          label: "Quà Giáng Sinh",
-                          slug: "qua-giang-sinh",
-                        },
-                        { emoji: "🧧", label: "Quà Tết", slug: "qua-tet" },
-                        {
-                          emoji: "💐",
-                          label: "Quà 20/11 & Thầy Cô",
-                          slug: "qua-20-11-thay-co",
-                        },
-                        {
-                          emoji: "✈️",
-                          label: "Quà Chia Tay / Đi Xa",
-                          slug: "qua-chia-tay-di-xa",
-                        },
-                        {
-                          emoji: "🎈",
-                          label: "Quà Tặng Không Cần Dịp",
-                          slug: "qua-tang-khong-can-dip",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          className="category-dropdown-item"
-                          onClick={() => {
-                            setNavDropdown(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(
-                                item.label,
-                                item.slug,
-                                "Quà Theo Dịp",
-                              );
-                            } else {
-                              go("catalog");
-                            }
-                          }}
-                        >
-                          <div className="item-left">
-                            <span className="item-emoji">{item.emoji}</span>
-                            <span className="item-title">{item.label}</span>
-                          </div>
-                          <span className="item-arrow">
-                            <Icon name="chevron" size={12} />
-                          </span>
-                        </button>
-                      ))}
+
+                    <div className="category-dropdown-column">
+                      <div className="category-dropdown-heading">
+                        DỊP LỄ & ĐẶC BIỆT
+                      </div>
+                      <div className="category-dropdown-list">
+                        {[
+                          {
+                            emoji: "🥮",
+                            label: "Quà Trung Thu",
+                            slug: "qua-trung-thu",
+                          },
+                          {
+                            emoji: "🎄",
+                            label: "Quà Giáng Sinh",
+                            slug: "qua-giang-sinh",
+                          },
+                          { emoji: "🧧", label: "Quà Tết", slug: "qua-tet" },
+                          {
+                            emoji: "💐",
+                            label: "Quà 20/11 & Thầy Cô",
+                            slug: "qua-20-11-thay-co",
+                          },
+                          {
+                            emoji: "✈️",
+                            label: "Quà Chia Tay / Đi Xa",
+                            slug: "qua-chia-tay-di-xa",
+                          },
+                          {
+                            emoji: "🎈",
+                            label: "Quà Tặng Không Cần Dịp",
+                            slug: "qua-tang-khong-can-dip",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            className="category-dropdown-item"
+                            onClick={() => {
+                              setNavDropdown(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(
+                                  item.label,
+                                  item.slug,
+                                  "Quà Theo Dịp",
+                                );
+                              } else {
+                                go("catalog");
+                              }
+                            }}
+                          >
+                            <div className="item-left">
+                              <span className="item-emoji">{item.emoji}</span>
+                              <span className="item-title">{item.label}</span>
+                            </div>
+                            <span className="item-arrow">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Dropdown 2: Quà Theo Người Nhận */}
-          <div
-            className={`nav-dropdown-wrapper ${navDropdown === "recipient" ? "active" : ""}`}
-            onMouseEnter={() => handleMouseEnter("recipient")}
-            onMouseLeave={handleMouseLeave}
-          >
-            <button
-              className={`nav-pill-btn ${navDropdown === "recipient" ? "active" : ""}`}
-              onClick={() =>
-                setNavDropdown(navDropdown === "recipient" ? null : "recipient")
-              }
+            {/* Dropdown 2: Quà Theo Người Nhận */}
+            <div
+              className={`nav-dropdown-wrapper ${navDropdown === "recipient" ? "active" : ""}`}
               onMouseEnter={() => handleMouseEnter("recipient")}
+              onMouseLeave={handleMouseLeave}
             >
-              <span className="btn-icon">💖</span>
-              <span>Quà Theo Người Nhận</span>
-              <span
-                className={`btn-arrow ${navDropdown === "recipient" ? "open" : ""}`}
-              >
-                <Icon name="chevron-down" size={12} />
-              </span>
-            </button>
-
-            {navDropdown === "recipient" && (
-              <div
-                className="category-dropdown-card"
+              <button
+                className={`nav-pill-btn ${navDropdown === "recipient" ? "active" : ""}`}
+                onClick={() =>
+                  setNavDropdown(
+                    navDropdown === "recipient" ? null : "recipient",
+                  )
+                }
                 onMouseEnter={() => handleMouseEnter("recipient")}
               >
-                <div className="category-dropdown-grid">
-                  <div className="category-dropdown-column">
-                    <div className="category-dropdown-heading">
-                      GIA ĐÌNH & NGƯỜI THÂN
-                    </div>
-                    <div className="category-dropdown-list">
-                      {[
-                        {
-                          emoji: "🌸",
-                          label: "Quà Cho Mẹ",
-                          slug: "qua-cho-me",
-                        },
-                        {
-                          emoji: "👔",
-                          label: "Quà Cho Bố",
-                          slug: "qua-cho-bo",
-                        },
-                        {
-                          emoji: "👵",
-                          label: "Quà Cho Ông Bà",
-                          slug: "qua-cho-ong-ba",
-                        },
-                        {
-                          emoji: "🏡",
-                          label: "Quà Tân Gia & Gia Đình",
-                          slug: "qua-tan-gia-gia-dinh",
-                        },
-                        {
-                          emoji: "👫",
-                          label: "Quà Cho Vợ / Chồng",
-                          slug: "qua-cho-vo-chong",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          className="category-dropdown-item"
-                          onClick={() => {
-                            setNavDropdown(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(
-                                item.label,
-                                item.slug,
-                                "Quà Theo Người Nhận",
-                              );
-                            } else {
-                              go("catalog");
-                            }
-                          }}
-                        >
-                          <div className="item-left">
-                            <span className="item-emoji">{item.emoji}</span>
-                            <span className="item-title">{item.label}</span>
-                          </div>
-                          <span className="item-arrow">
-                            <Icon name="chevron" size={12} />
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <span className="btn-icon">💖</span>
+                <span>Quà Theo Người Nhận</span>
+                <span
+                  className={`btn-arrow ${navDropdown === "recipient" ? "open" : ""}`}
+                >
+                  <Icon name="chevron-down" size={12} />
+                </span>
+              </button>
 
-                  <div className="category-dropdown-column">
-                    <div className="category-dropdown-heading">
-                      TÌNH YÊU & CÔNG SỞ
+              {navDropdown === "recipient" && (
+                <div
+                  className="category-dropdown-card"
+                  onMouseEnter={() => handleMouseEnter("recipient")}
+                >
+                  <div className="category-dropdown-grid">
+                    <div className="category-dropdown-column">
+                      <div className="category-dropdown-heading">
+                        GIA ĐÌNH & NGƯỜI THÂN
+                      </div>
+                      <div className="category-dropdown-list">
+                        {[
+                          {
+                            emoji: "🌸",
+                            label: "Quà Cho Mẹ",
+                            slug: "qua-cho-me",
+                          },
+                          {
+                            emoji: "👔",
+                            label: "Quà Cho Bố",
+                            slug: "qua-cho-bo",
+                          },
+                          {
+                            emoji: "👵",
+                            label: "Quà Cho Ông Bà",
+                            slug: "qua-cho-ong-ba",
+                          },
+                          {
+                            emoji: "🏡",
+                            label: "Quà Tân Gia & Gia Đình",
+                            slug: "qua-tan-gia-gia-dinh",
+                          },
+                          {
+                            emoji: "👫",
+                            label: "Quà Cho Vợ / Chồng",
+                            slug: "qua-cho-vo-chong",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            className="category-dropdown-item"
+                            onClick={() => {
+                              setNavDropdown(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(
+                                  item.label,
+                                  item.slug,
+                                  "Quà Theo Người Nhận",
+                                );
+                              } else {
+                                go("catalog");
+                              }
+                            }}
+                          >
+                            <div className="item-left">
+                              <span className="item-emoji">{item.emoji}</span>
+                              <span className="item-title">{item.label}</span>
+                            </div>
+                            <span className="item-arrow">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="category-dropdown-list">
-                      {[
-                        {
-                          emoji: "💄",
-                          label: "Quà Cho Nàng (Bạn Gái)",
-                          slug: "qua-cho-nang",
-                        },
-                        {
-                          emoji: "⌚",
-                          label: "Quà Cho Chàng (Bạn Trai)",
-                          slug: "qua-cho-chang",
-                        },
-                        {
-                          emoji: "💼",
-                          label: "Quà Cho Đồng Nghiệp",
-                          slug: "qua-cho-dong-nghiep",
-                        },
-                        {
-                          emoji: "👑",
-                          label: "Quà Cho Sếp",
-                          slug: "qua-cho-sep",
-                        },
-                        {
-                          emoji: "🎓",
-                          label: "Quà Tri Ân Thầy Cô",
-                          slug: "qua-tri-an-thay-co",
-                        },
-                        {
-                          emoji: "🤝",
-                          label: "Quà Cho Bạn Thân",
-                          slug: "qua-cho-ban-than",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          className="category-dropdown-item"
-                          onClick={() => {
-                            setNavDropdown(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(
-                                item.label,
-                                item.slug,
-                                "Quà Theo Người Nhận",
-                              );
-                            } else {
-                              go("catalog");
-                            }
-                          }}
-                        >
-                          <div className="item-left">
-                            <span className="item-emoji">{item.emoji}</span>
-                            <span className="item-title">{item.label}</span>
-                          </div>
-                          <span className="item-arrow">
-                            <Icon name="chevron" size={12} />
-                          </span>
-                        </button>
-                      ))}
+
+                    <div className="category-dropdown-column">
+                      <div className="category-dropdown-heading">
+                        TÌNH YÊU & CÔNG SỞ
+                      </div>
+                      <div className="category-dropdown-list">
+                        {[
+                          {
+                            emoji: "💄",
+                            label: "Quà Cho Nàng (Bạn Gái)",
+                            slug: "qua-cho-nang",
+                          },
+                          {
+                            emoji: "⌚",
+                            label: "Quà Cho Chàng (Bạn Trai)",
+                            slug: "qua-cho-chang",
+                          },
+                          {
+                            emoji: "💼",
+                            label: "Quà Cho Đồng Nghiệp",
+                            slug: "qua-cho-dong-nghiep",
+                          },
+                          {
+                            emoji: "👑",
+                            label: "Quà Cho Sếp",
+                            slug: "qua-cho-sep",
+                          },
+                          {
+                            emoji: "🎓",
+                            label: "Quà Tri Ân Thầy Cô",
+                            slug: "qua-tri-an-thay-co",
+                          },
+                          {
+                            emoji: "🤝",
+                            label: "Quà Cho Bạn Thân",
+                            slug: "qua-cho-ban-than",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            className="category-dropdown-item"
+                            onClick={() => {
+                              setNavDropdown(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(
+                                  item.label,
+                                  item.slug,
+                                  "Quà Theo Người Nhận",
+                                );
+                              } else {
+                                go("catalog");
+                              }
+                            }}
+                          >
+                            <div className="item-left">
+                              <span className="item-emoji">{item.emoji}</span>
+                              <span className="item-title">{item.label}</span>
+                            </div>
+                            <span className="item-arrow">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Dropdown 3: Dòng Sản Phẩm */}
-          <div
-            className={`nav-dropdown-wrapper ${navDropdown === "category" ? "active" : ""}`}
-            onMouseEnter={() => handleMouseEnter("category")}
-            onMouseLeave={handleMouseLeave}
-          >
-            <button
-              className={`nav-pill-btn ${navDropdown === "category" ? "active" : ""}`}
-              onClick={() =>
-                setNavDropdown(navDropdown === "category" ? null : "category")
-              }
+            {/* Dropdown 3: Dòng Sản Phẩm */}
+            <div
+              className={`nav-dropdown-wrapper ${navDropdown === "category" ? "active" : ""}`}
               onMouseEnter={() => handleMouseEnter("category")}
+              onMouseLeave={handleMouseLeave}
             >
-              <span className="btn-icon">📦</span>
-              <span>Dòng Sản Phẩm</span>
-              <span
-                className={`btn-arrow ${navDropdown === "category" ? "open" : ""}`}
-              >
-                <Icon name="chevron-down" size={12} />
-              </span>
-            </button>
-
-            {navDropdown === "category" && (
-              <div
-                className="category-dropdown-card"
+              <button
+                className={`nav-pill-btn ${navDropdown === "category" ? "active" : ""}`}
+                onClick={() =>
+                  setNavDropdown(navDropdown === "category" ? null : "category")
+                }
                 onMouseEnter={() => handleMouseEnter("category")}
               >
-                <div className="category-dropdown-grid">
-                  <div className="category-dropdown-column">
-                    <div className="category-dropdown-heading">
-                      LÀM ĐẸP & PHONG CÁCH
-                    </div>
-                    <div className="category-dropdown-list">
-                      {[
-                        {
-                          emoji: "💄",
-                          label: "Mỹ Phẩm & Chăm Sóc Da",
-                          slug: "my-pham-cham-soc-da",
-                        },
-                        {
-                          emoji: "🕯️",
-                          label: "Nến Thơm & Tinh Dầu",
-                          slug: "nen-thom-tinh-dau",
-                        },
-                        {
-                          emoji: "⌚",
-                          label: "Đồng Hồ & Phụ Kiện Nam",
-                          slug: "dong-ho-phu-kien-nam",
-                        },
-                        {
-                          emoji: "💍",
-                          label: "Trang Sức Nữ Cao Cấp",
-                          slug: "trang-suc-nu-cao-cap",
-                        },
-                        {
-                          emoji: "👜",
-                          label: "Túi Xách & Ví Da",
-                          slug: "tui-xach-vi-da",
-                        },
-                        {
-                          emoji: "🧣",
-                          label: "Khăn Choàng & Phụ Kiện",
-                          slug: "khan-choang-phu-kien",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          className="category-dropdown-item"
-                          onClick={() => {
-                            setNavDropdown(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(
-                                item.label,
-                                item.slug,
-                                "Dòng Sản Phẩm",
-                              );
-                            } else {
-                              go("catalog");
-                            }
-                          }}
-                        >
-                          <div className="item-left">
-                            <span className="item-emoji">{item.emoji}</span>
-                            <span className="item-title">{item.label}</span>
-                          </div>
-                          <span className="item-arrow">
-                            <Icon name="chevron" size={12} />
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <span className="btn-icon">📦</span>
+                <span>Dòng Sản Phẩm</span>
+                <span
+                  className={`btn-arrow ${navDropdown === "category" ? "open" : ""}`}
+                >
+                  <Icon name="chevron-down" size={12} />
+                </span>
+              </button>
 
-                  <div className="category-dropdown-column">
-                    <div className="category-dropdown-heading">
-                      CÔNG NGHỆ & ĐỜI SỐNG
+              {navDropdown === "category" && (
+                <div
+                  className="category-dropdown-card"
+                  onMouseEnter={() => handleMouseEnter("category")}
+                >
+                  <div className="category-dropdown-grid">
+                    <div className="category-dropdown-column">
+                      <div className="category-dropdown-heading">
+                        LÀM ĐẸP & PHONG CÁCH
+                      </div>
+                      <div className="category-dropdown-list">
+                        {[
+                          {
+                            emoji: "💄",
+                            label: "Mỹ Phẩm & Chăm Sóc Da",
+                            slug: "my-pham-cham-soc-da",
+                          },
+                          {
+                            emoji: "🕯️",
+                            label: "Nến Thơm & Tinh Dầu",
+                            slug: "nen-thom-tinh-dau",
+                          },
+                          {
+                            emoji: "⌚",
+                            label: "Đồng Hồ & Phụ Kiện Nam",
+                            slug: "dong-ho-phu-kien-nam",
+                          },
+                          {
+                            emoji: "💍",
+                            label: "Trang Sức Nữ Cao Cấp",
+                            slug: "trang-suc-nu-cao-cap",
+                          },
+                          {
+                            emoji: "👜",
+                            label: "Túi Xách & Ví Da",
+                            slug: "tui-xach-vi-da",
+                          },
+                          {
+                            emoji: "🧣",
+                            label: "Khăn Choàng & Phụ Kiện",
+                            slug: "khan-choang-phu-kien",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            className="category-dropdown-item"
+                            onClick={() => {
+                              setNavDropdown(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(
+                                  item.label,
+                                  item.slug,
+                                  "Dòng Sản Phẩm",
+                                );
+                              } else {
+                                go("catalog");
+                              }
+                            }}
+                          >
+                            <div className="item-left">
+                              <span className="item-emoji">{item.emoji}</span>
+                              <span className="item-title">{item.label}</span>
+                            </div>
+                            <span className="item-arrow">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="category-dropdown-list">
-                      {[
-                        {
-                          emoji: "🎧",
-                          label: "Đồ Công Nghệ & Gaming",
-                          slug: "do-cong-nghe-gaming",
-                        },
-                        {
-                          emoji: "🎁",
-                          label: "Set Quà Thủ Công Giftbox",
-                          slug: "set-qua-thu-cong-giftbox",
-                        },
-                        {
-                          emoji: "🍵",
-                          label: "Bộ Ấm Trà & Ly Giữ Nhiệt",
-                          slug: "bo-am-tra-ly-giu-nhiet",
-                        },
-                        {
-                          emoji: "🌿",
-                          label: "Sức Khỏe & Thảo Mộc",
-                          slug: "suc-khoe-thao-moc",
-                        },
-                        {
-                          emoji: "🪴",
-                          label: "Đồ Decor Bàn Làm Việc",
-                          slug: "do-decor-ban-lam-viec",
-                        },
-                        {
-                          emoji: "📚",
-                          label: "Sách & Sổ Tay Quà Tặng",
-                          slug: "sach-so-tay-qua-tang",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          className="category-dropdown-item"
-                          onClick={() => {
-                            setNavDropdown(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(
-                                item.label,
-                                item.slug,
-                                "Dòng Sản Phẩm",
-                              );
-                            } else {
-                              go("catalog");
-                            }
-                          }}
-                        >
-                          <div className="item-left">
-                            <span className="item-emoji">{item.emoji}</span>
-                            <span className="item-title">{item.label}</span>
-                          </div>
-                          <span className="item-arrow">
-                            <Icon name="chevron" size={12} />
-                          </span>
-                        </button>
-                      ))}
+
+                    <div className="category-dropdown-column">
+                      <div className="category-dropdown-heading">
+                        CÔNG NGHỆ & ĐỜI SỐNG
+                      </div>
+                      <div className="category-dropdown-list">
+                        {[
+                          {
+                            emoji: "🎧",
+                            label: "Đồ Công Nghệ & Gaming",
+                            slug: "do-cong-nghe-gaming",
+                          },
+                          {
+                            emoji: "🎁",
+                            label: "Set Quà Thủ Công Giftbox",
+                            slug: "set-qua-thu-cong-giftbox",
+                          },
+                          {
+                            emoji: "🍵",
+                            label: "Bộ Ấm Trà & Ly Giữ Nhiệt",
+                            slug: "bo-am-tra-ly-giu-nhiet",
+                          },
+                          {
+                            emoji: "🌿",
+                            label: "Sức Khỏe & Thảo Mộc",
+                            slug: "suc-khoe-thao-moc",
+                          },
+                          {
+                            emoji: "🪴",
+                            label: "Đồ Decor Bàn Làm Việc",
+                            slug: "do-decor-ban-lam-viec",
+                          },
+                          {
+                            emoji: "📚",
+                            label: "Sách & Sổ Tay Quà Tặng",
+                            slug: "sach-so-tay-qua-tang",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            className="category-dropdown-item"
+                            onClick={() => {
+                              setNavDropdown(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(
+                                  item.label,
+                                  item.slug,
+                                  "Dòng Sản Phẩm",
+                                );
+                              } else {
+                                go("catalog");
+                              }
+                            }}
+                          >
+                            <div className="item-left">
+                              <span className="item-emoji">{item.emoji}</span>
+                              <span className="item-title">{item.label}</span>
+                            </div>
+                            <span className="item-arrow">
+                              <Icon name="chevron" size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <button
-            className="nav-text-btn"
-            onClick={() => {
-              setNavDropdown(null);
-              if (onSelectCategory) {
-                onSelectCategory(
-                  "Quà Doanh Nghiệp & Đối Tác",
-                  "qua-doanh-nghiep",
-                  "Quà Doanh Nghiệp",
-                );
-              } else {
-                go("catalog");
-              }
-            }}
-          >
-            Quà Doanh Nghiệp
-          </button>
-
-          <button
-            className="nav-text-btn"
-            onClick={() => {
-              setNavDropdown(null);
-              if (onSelectCategory) {
-                onSelectCategory(
-                  "Quà Theo Cung Hoàng Đạo",
-                  "qua-cung-hoang-dao",
-                  "Cung Hoàng Đạo",
-                );
-              } else {
-                go("catalog");
-              }
-            }}
-          >
-            Quà theo cung hoàng đạo
-          </button>
-
-          <span />
-
-          <button
-            className="hot-nav-btn"
-            onClick={() => {
-              setNavDropdown(null);
-              if (onSelectCategory) {
-                onSelectCategory(
-                  "⚡ Flash Sale — Deal Quà Hot Hôm Nay",
-                  "flash-sale",
-                  "Flash Sale",
-                );
-              } else {
-                go("catalog");
-              }
-            }}
-          >
-            Flash Sale <span className="hot-nav-badge">HOT</span>
-          </button>
-
-          <div className="mobile-nav-links">
-            <button onClick={() => go("wishlist")}>
-              ♡ Quà đã yêu thích {wishlistCount > 0 ? `(${wishlistCount})` : ""}
+            <button
+              className="nav-text-btn"
+              onClick={() => {
+                setNavDropdown(null);
+                if (onSelectCategory) {
+                  onSelectCategory(
+                    "Quà Doanh Nghiệp & Đối Tác",
+                    "qua-doanh-nghiep",
+                    "Quà Doanh Nghiệp",
+                  );
+                } else {
+                  go("catalog");
+                }
+              }}
+            >
+              Quà Doanh Nghiệp
             </button>
-            {isAdmin ? (
-              <button onClick={() => go("admin")}>🛡️ Quản trị Admin</button>
-            ) : isMerchant ? (
-              <button onClick={() => go("merchant")}>🏪 Kênh Người Bán</button>
-            ) : (
-              <button onClick={() => go("merchant")}>
-                Bán hàng cùng GiftFinder
+
+            <button
+              className="nav-text-btn"
+              onClick={() => {
+                setNavDropdown(null);
+                if (onSelectCategory) {
+                  onSelectCategory(
+                    "Quà Theo Cung Hoàng Đạo",
+                    "qua-cung-hoang-dao",
+                    "Cung Hoàng Đạo",
+                  );
+                } else {
+                  go("catalog");
+                }
+              }}
+            >
+              Quà theo cung hoàng đạo
+            </button>
+
+            <span />
+
+            <button
+              className="hot-nav-btn"
+              onClick={() => {
+                setNavDropdown(null);
+                if (onSelectCategory) {
+                  onSelectCategory(
+                    "⚡ Flash Sale — Deal Quà Hot Hôm Nay",
+                    "flash-sale",
+                    "Flash Sale",
+                  );
+                } else {
+                  go("catalog");
+                }
+              }}
+            >
+              Flash Sale <span className="hot-nav-badge">HOT</span>
+            </button>
+
+            <div className="mobile-nav-links">
+              <button onClick={() => go("wishlist")}>
+                ♡ Quà đã yêu thích{" "}
+                {wishlistCount > 0 ? `(${wishlistCount})` : ""}
               </button>
-            )}
-            {!isAuthenticated ? (
-              <button onClick={() => go("auth")}>Đăng nhập / Đăng ký</button>
-            ) : (
-              <button onClick={() => logout()} style={{ color: "var(--rose)" }}>
-                Đăng xuất ({user?.fullName})
-              </button>
-            )}
+              {isAdmin ? (
+                <button onClick={() => go("admin")}>🛡️ Quản trị Admin</button>
+              ) : isMerchant ? (
+                <button onClick={() => go("merchant")}>
+                  🏪 Kênh Người Bán
+                </button>
+              ) : (
+                <button onClick={() => go("merchant")}>
+                  Bán hàng cùng GiftFinder
+                </button>
+              )}
+              {!isAuthenticated ? (
+                <button onClick={() => go("auth")}>Đăng nhập / Đăng ký</button>
+              ) : (
+                <button
+                  onClick={() => logout()}
+                  style={{ color: "var(--rose)" }}
+                >
+                  Đăng xuất ({user?.fullName})
+                </button>
+              )}
+            </div>
           </div>
-        </div>
         )}
       </header>
     </>
@@ -1691,7 +1710,7 @@ function ProductCard({
         <div className="rating">
           ★★★★★{" "}
           <span>
-            {product.rating} · Đã bán {product.sold}
+            {product.rating} ({product.sold} đánh giá)
           </span>
         </div>
         <div className="price">
@@ -2661,7 +2680,7 @@ function AiChatbotWidget({
                         <div className="chat-product-meta">
                           <b>⭐ {m.product.rating || "4.9"}</b>
                           <span>•</span>
-                          <span>{m.product.sold || "128"} đã bán</span>
+                          <span>({m.product.sold || "128"} đánh giá)</span>
                         </div>
 
                         <div className="chat-product-price-row">
@@ -3165,8 +3184,7 @@ function getFlashSaleSlot() {
   const slotDuration = 4 * 3600; // 4 tiếng = 14400 giây
 
   const slotIndex = Math.floor(secondsSinceMidnight / slotDuration); // 0 đến 5 trong ngày
-  const remainingSeconds =
-    slotDuration - (secondsSinceMidnight % slotDuration);
+  const remainingSeconds = slotDuration - (secondsSinceMidnight % slotDuration);
 
   // Số ngày từ epoch để mỗi ngày trong tháng lại có các vòng phiên khác nhau
   const dayIndex = Math.floor(now.getTime() / (86400 * 1000));
@@ -3435,7 +3453,12 @@ function Home({
         n.includes("gấu") ||
         n.includes("son") ||
         n.includes("sổ") ||
-        t.some((tag) => tag.includes("quà") || tag.includes("decor") || tag.includes("mỹ phẩm"))
+        t.some(
+          (tag) =>
+            tag.includes("quà") ||
+            tag.includes("decor") ||
+            tag.includes("mỹ phẩm"),
+        )
       );
     };
 
@@ -3489,7 +3512,9 @@ function Home({
 
     // 3. Fallback graceful: Đảm bảo hàng luôn hiển thị đủ 5 món sang xịn, không bao giờ bị cụt
     if (candidateList.length < 5) {
-      const existingIds = new Set(candidateList.map((p: ProductItem) => p.id || p.name));
+      const existingIds = new Set(
+        candidateList.map((p: ProductItem) => p.id || p.name),
+      );
       const backupGifts = products.filter((p: ProductItem) => {
         const key = p.id || p.name;
         if (existingIds.has(key)) return false;
@@ -3524,9 +3549,10 @@ function Home({
     return () => clearInterval(timer);
   }, []);
 
-  const cHours = String(
-    Math.floor(saleSlot.remainingSeconds / 3600),
-  ).padStart(2, "0");
+  const cHours = String(Math.floor(saleSlot.remainingSeconds / 3600)).padStart(
+    2,
+    "0",
+  );
   const cMinutes = String(
     Math.floor((saleSlot.remainingSeconds % 3600) / 60),
   ).padStart(2, "0");
@@ -3719,11 +3745,17 @@ function Home({
     } else {
       // Đánh giá cao nhất (4.8★ - 5.0★), cân bằng cả Shopee và TikTok Shop
       const shopeeTop = giftItems
-        .filter((p) => p.platform === "SHOPEE" && parseFloat(p.rating || "0") >= 4.8)
-        .sort((a, b) => parseFloat(b.rating || "0") - parseFloat(a.rating || "0"));
+        .filter(
+          (p) => p.platform === "SHOPEE" && parseFloat(p.rating || "0") >= 4.8,
+        )
+        .sort(
+          (a, b) => parseFloat(b.rating || "0") - parseFloat(a.rating || "0"),
+        );
 
       const tiktokTop = giftItems
-        .filter((p) => p.platform === "TIKTOK" && parseFloat(p.rating || "0") >= 4.8)
+        .filter(
+          (p) => p.platform === "TIKTOK" && parseFloat(p.rating || "0") >= 4.8,
+        )
         .sort((a, b) => (b.price || 0) - (a.price || 0));
 
       const result: ProductItem[] = [];
@@ -4195,10 +4227,7 @@ function Home({
             </div>
           }
         />
-        <div
-          key={featuredTab}
-          className="product-row occasion-product-row"
-        >
+        <div key={featuredTab} className="product-row occasion-product-row">
           {featuredProducts.map((p, i) => (
             <ProductCard
               key={p.id || p.name + i}
@@ -4967,8 +4996,9 @@ function Catalog({
           );
           const srcUpper = (item.source || "").toUpperCase();
           const urlLower = (item.originalUrl || "").toLowerCase();
-          const platform =
-            srcUpper.includes("TIKTOK") || urlLower.includes("tiktok")
+          const platform = srcUpper.includes("DIRECT")
+            ? "DIRECT"
+            : srcUpper.includes("TIKTOK") || urlLower.includes("tiktok")
               ? "TIKTOK"
               : srcUpper.includes("SHOPEE") || urlLower.includes("shopee")
                 ? "SHOPEE"
@@ -4980,7 +5010,12 @@ function Catalog({
             price: item.price,
             old: origPrice,
             rating: String(item.rating > 0 ? item.rating.toFixed(1) : "4.9"),
-            sold: String(item.totalReviews > 0 ? item.totalReviews : 128),
+            sold:
+              item.totalReviews > 1000
+                ? `${(item.totalReviews / 1000).toFixed(1)}k`
+                : item.totalReviews > 0
+                  ? `${item.totalReviews}`
+                  : "128",
             image: getHighResImageUrl(item.imageUrl),
             platform,
             discount: `-${disc}%`,
@@ -5023,7 +5058,8 @@ function Catalog({
     if (target) {
       const headerOffset = 130; // 120px sticky header + 10px đệm
       const elementPosition = target.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      const offsetPosition =
+        elementPosition + window.pageYOffset - headerOffset;
 
       window.scrollTo({
         top: Math.max(0, offsetPosition),
@@ -5172,6 +5208,7 @@ function Catalog({
     { id: "all", label: "Tất cả sàn", value: undefined, icon: "✨" },
     { id: "shopee", label: "Shopee Mall", value: "Shopee", icon: "🛍️" },
     { id: "tiktok", label: "TikTok Shop", value: "TikTokShop", icon: "🎵" },
+    { id: "direct", label: "Gian hàng đối tác (Đặt trực tiếp)", value: "DirectMerchant", icon: "🏪" },
   ];
 
   const handleSelectPlatform = (val?: string) => {
@@ -6594,8 +6631,9 @@ function ProductDetail({
           );
           const srcUpper = (item.source || "").toUpperCase();
           const urlLower = (item.originalUrl || "").toLowerCase();
-          const platform =
-            srcUpper.includes("TIKTOK") || urlLower.includes("tiktok")
+          const platform = srcUpper.includes("DIRECT")
+            ? "DIRECT"
+            : srcUpper.includes("TIKTOK") || urlLower.includes("tiktok")
               ? "TIKTOK"
               : srcUpper.includes("SHOPEE") || urlLower.includes("shopee")
                 ? "SHOPEE"
@@ -6606,7 +6644,12 @@ function ProductDetail({
             price: item.price,
             old: origPrice,
             rating: String(item.rating > 0 ? item.rating.toFixed(1) : "4.9"),
-            sold: String(item.totalReviews > 0 ? item.totalReviews : 128),
+            sold:
+              item.totalReviews > 1000
+                ? `${(item.totalReviews / 1000).toFixed(1)}k`
+                : item.totalReviews > 0
+                  ? `${item.totalReviews}`
+                  : "128",
             image: getHighResImageUrl(item.imageUrl),
             platform,
             discount: `-${disc}%`,
@@ -6661,19 +6704,25 @@ function ProductDetail({
       currentProduct.originalUrl ||
       ""
     ).toLowerCase();
+    if (src.includes("DIRECT") || currentProduct.platform === "DIRECT") return "DIRECT";
     if (src.includes("TIKTOK") || url.includes("tiktok")) return "TIKTOK";
     if (src.includes("SHOPEE") || url.includes("shopee")) return "SHOPEE";
-    if (src.includes("DIRECT")) return "DIRECT";
-    return currentProduct.platform === "DIRECT" ? "DIRECT" : "SHOPEE";
+    return "SHOPEE";
   })();
 
   const isDirectProduct = effectivePlatform === "DIRECT";
+  const effectiveMerchantName =
+    detailDto?.merchantName || currentProduct.merchantName || "Tiem Gom Moc";
+  const effectiveMerchantProvince =
+    detailDto?.merchantProvince || currentProduct.merchantProvince || "Hà Nội";
+  const effectiveStock =
+    detailDto?.stockQuantity ?? currentProduct.stockQuantity ?? 45;
   const platformLabel =
     effectivePlatform === "TIKTOK"
       ? "TikTok Shop"
       : effectivePlatform === "SHOPEE"
         ? "Shopee"
-        : "GiftFinder Direct";
+        : `Gian hàng ${effectiveMerchantName}`;
 
   const effectivePrice = detailDto?.price || currentProduct.price;
   const effectiveOldPrice =
@@ -6882,8 +6931,8 @@ function ProductDetail({
         </section>
 
         <section className="buy-panel">
-          <Badge tone="rose">
-            {isDirectProduct ? "GIFTFINDER DIRECT" : effectivePlatform}
+          <Badge tone={isDirectProduct ? "indigo" : "rose"}>
+            {isDirectProduct ? "🏪 GIAN HÀNG ĐỐI TÁC TRỰC TIẾP" : effectivePlatform}
           </Badge>
           <h1>{currentProduct.name}</h1>
           <button
@@ -6894,7 +6943,7 @@ function ProductDetail({
             style={{ cursor: isDirectProduct ? "default" : "pointer" }}
           >
             {isDirectProduct
-              ? "Gian hàng chính thức GiftFinder Direct"
+              ? `🏪 ${effectiveMerchantName} · Kho gửi hàng: ${effectiveMerchantProvince}`
               : `Bán trên ${platformLabel}`}{" "}
             <span>✓</span>
           </button>
@@ -6944,6 +6993,27 @@ function ProductDetail({
 
           {isDirectProduct ? (
             <>
+              <div
+                style={{
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  fontSize: 13,
+                  color: "#334155",
+                  display: "grid",
+                  gap: 6,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>📍 <b>Kho xuất hàng:</b> {effectiveMerchantProvince}</span>
+                  <span style={{ color: "#059669", fontWeight: 700 }}>⚡ Hỗ trợ Hỏa tốc 2H nội tỉnh</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  🎁 Hỗ trợ gói hộp quà cao cấp, viết thiệp tay & che giá bí mật khi tặng quà.
+                </div>
+              </div>
               <div className="quantity-row">
                 <label>Số lượng</label>
                 <div className="stepper">
@@ -6951,22 +7021,42 @@ function ProductDetail({
                     <Icon name="minus" size={14} />
                   </button>
                   <b>{qty}</b>
-                  <button onClick={() => setQty(qty + 1)}>
+                  <button
+                    onClick={() =>
+                      setQty(Math.min(Math.max(1, effectiveStock), qty + 1))
+                    }
+                  >
                     <Icon name="plus" size={14} />
                   </button>
                 </div>
-                <small>Còn hàng tại kho GiftFinder</small>
+                <small>
+                  {effectiveStock > 0
+                    ? `Còn ${effectiveStock} sản phẩm sẵn sàng tại kho ${effectiveMerchantName}`
+                    : "Tạm hết hàng"}
+                </small>
               </div>
               <div className="direct-actions">
                 <Button
                   variant="secondary"
+                  disabled={effectiveStock <= 0}
                   onClick={() => {
+                    if (currentProduct.id) {
+                      productService.trackAffiliateClick(currentProduct.id).catch(() => {});
+                    }
                     addToCart(
-                      { ...currentProduct, platform: "DIRECT" },
+                      {
+                        ...currentProduct,
+                        price: effectivePrice,
+                        platform: "DIRECT",
+                        merchantId: detailDto?.merchantId || currentProduct.merchantId,
+                        merchantName: effectiveMerchantName,
+                        merchantProvince: effectiveMerchantProvince,
+                        stockQuantity: effectiveStock,
+                      },
                       qty,
-                      "Tiêu chuẩn",
+                      "Hộp quà tiêu chuẩn",
                     );
-                    go("cart");
+                    onNotify?.("🛒 Đã thêm món quà vào giỏ hàng!");
                   }}
                   icon="cart"
                 >
@@ -6974,17 +7064,48 @@ function ProductDetail({
                 </Button>
                 <Button
                   variant="rose"
+                  disabled={effectiveStock <= 0}
                   onClick={() => {
+                    if (currentProduct.id) {
+                      productService.trackAffiliateClick(currentProduct.id).catch(() => {});
+                    }
                     addToCart(
-                      { ...currentProduct, platform: "DIRECT" },
+                      {
+                        ...currentProduct,
+                        price: effectivePrice,
+                        platform: "DIRECT",
+                        merchantId: detailDto?.merchantId || currentProduct.merchantId,
+                        merchantName: effectiveMerchantName,
+                        merchantProvince: effectiveMerchantProvince,
+                        stockQuantity: effectiveStock,
+                      },
                       qty,
-                      "Tiêu chuẩn",
+                      "Hộp quà tiêu chuẩn",
                     );
                     go("checkout");
                   }}
                 >
-                  Mua ngay với VNPAY
+                  Đặt mua ngay (COD)
                 </Button>
+              </div>
+              <div className="pdp-secondary-actions" style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  className={`pdp-secondary-btn ${liked ? "active" : ""}`}
+                  onClick={handleToggleWishlist}
+                >
+                  <Icon name="heart" size={15} />
+                  {liked ? "Đã lưu yêu thích" : "Lưu vào yêu thích"}
+                </button>
+                <button
+                  type="button"
+                  className="pdp-secondary-btn"
+                  onClick={handleTrackPriceDrop}
+                  disabled={trackingPrice}
+                >
+                  <Icon name="bell" size={15} />
+                  {trackingPrice ? "Đang bật..." : "Báo khi giảm giá"}
+                </button>
               </div>
             </>
           ) : (
@@ -7005,7 +7126,13 @@ function ProductDetail({
                   </button>
 
                   {!isMobileDevice() && (
-                    <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginTop: 4,
+                      }}
+                    >
                       <button
                         type="button"
                         className="pdp-link-btn"
@@ -7023,7 +7150,9 @@ function ProductDetail({
                   )}
 
                   <div className="pdp-app-tip-badge">
-                    ⚡ <b>Mẹo mua sắm:</b> TikTok Shop yêu cầu đặt hàng trên ứng dụng điện thoại. Quét mã QR để mở thẳng App & nhận ưu đãi giảm giá!
+                    ⚡ <b>Mẹo mua sắm:</b> TikTok Shop yêu cầu đặt hàng trên ứng
+                    dụng điện thoại. Quét mã QR để mở thẳng App & nhận ưu đãi
+                    giảm giá!
                   </div>
                 </>
               ) : (
@@ -7067,9 +7196,9 @@ function ProductDetail({
           <div className="trust-banner">
             {(isDirectProduct
               ? [
-                  ["✓", "100% quà chính hãng"],
-                  ["↻", "Đổi trả 7 ngày"],
-                  ["⚡", "Thanh toán VNPAY bảo mật"],
+                  ["✓", "Đặt trực tiếp trên Web"],
+                  ["💵", "Thanh toán khi nhận hàng (COD)"],
+                  ["⚡", `Giao từ kho ${effectiveMerchantProvince}`],
                 ]
               : [
                   ["✓", `Giá cập nhật từ ${platformLabel}`],
@@ -7519,6 +7648,10 @@ function Cart({ go }: { go: (p: Page) => void }) {
     giftWrapFee,
     hasGiftWrap,
     setHasGiftWrap,
+    giftMessage,
+    setGiftMessage,
+    hidePriceOnPackage,
+    setHidePriceOnPackage,
     total,
   } = useCart();
   const [voucher, setVoucher] = useState(false);
@@ -7578,7 +7711,7 @@ function Cart({ go }: { go: (p: Page) => void }) {
                 <div>
                   <Badge tone={item.platform === "DIRECT" ? "indigo" : "dark"}>
                     {item.platform === "DIRECT"
-                      ? "GIFTFINDER DIRECT"
+                      ? `🏪 ${item.merchantName || "Tiem Gom Moc"} (${item.merchantProvince || "Hà Nội"})`
                       : item.platform}
                   </Badge>
                   <h3>{item.name}</h3>
@@ -7619,7 +7752,11 @@ function Cart({ go }: { go: (p: Page) => void }) {
                     : "GÓI QUÀ CAO CẤP (CHƯA CHỌN)"}
                 </Badge>
                 <b>Hộp quà & thiệp viết tay cá nhân hóa</b>
-                <span>“Chúc em luôn rạng rỡ như những đóa hoa...”</span>
+                <span>
+                  {giftMessage
+                    ? `“${giftMessage}”`
+                    : "“Chúc em luôn rạng rỡ như những đóa hoa...”"}
+                </span>
               </div>
               <strong>{hasGiftWrap ? "+30.000đ" : "0đ"}</strong>
               <button
@@ -7631,12 +7768,65 @@ function Cart({ go }: { go: (p: Page) => void }) {
                 {hasGiftWrap ? "Bỏ chọn" : "Thêm gói quà"}
               </button>
             </div>
+
+            {hasGiftWrap && (
+              <div
+                style={{
+                  background: "#fff1f2",
+                  border: "1px solid #fecdd3",
+                  borderRadius: 14,
+                  padding: "16px",
+                  marginTop: 12,
+                  display: "grid",
+                  gap: 10,
+                }}
+              >
+                <label style={{ display: "grid", gap: 6, fontSize: 13, fontWeight: 700, color: "#9f1239" }}>
+                  <span>💌 Lời chúc viết lên thiệp tặng (Shop sẽ viết tay nắn nót giúp bạn):</span>
+                  <textarea
+                    rows={2}
+                    value={giftMessage}
+                    onChange={(e) => setGiftMessage(e.target.value)}
+                    placeholder="Nhập lời chúc ý nghĩa gửi đến người nhận..."
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #fda4af",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      background: "#fff",
+                    }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    color: "#881337",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={hidePriceOnPackage}
+                    onChange={(e) => setHidePriceOnPackage(e.target.checked)}
+                  />
+                  <span>
+                    🤫 <b>Quà tặng bí mật:</b> Che giá tiền trên phiếu giao hàng bên ngoài hộp quà
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="cart-assurance">
               <span>
-                <Icon name="shield" /> Thanh toán bảo mật
+                <Icon name="shield" /> Thanh toán COD khi nhận quà
               </span>
               <span>↻ Đổi trả trong 7 ngày</span>
-              <span>⚡ Giao nhanh hỏa tốc 2h</span>
+              <span>⚡ Hỗ trợ Hỏa tốc 2H nội tỉnh</span>
             </div>
           </section>
           <OrderSummary
@@ -7656,6 +7846,42 @@ function Cart({ go }: { go: (p: Page) => void }) {
     </main>
   );
 }
+
+const PROVINCE_DISTRICTS: Record<string, string[]> = {
+  "Hà Nội": [
+    "Quận Cầu Giấy",
+    "Quận Ba Đình",
+    "Quận Đống Đa",
+    "Quận Hoàn Kiếm",
+    "Quận Hai Bà Trưng",
+    "Quận Thanh Xuân",
+    "Quận Tây Hồ",
+    "Quận Nam Từ Liêm",
+    "Quận Hà Đông",
+  ],
+  "TP. Hồ Chí Minh": [
+    "Quận 1",
+    "Quận 3",
+    "Quận 7",
+    "Quận Bình Thạnh",
+    "Quận Phú Nhuận",
+    "Quận Tân Bình",
+    "TP. Thủ Đức",
+    "Quận 10",
+  ],
+  "Đà Nẵng": [
+    "Quận Hải Châu",
+    "Quận Thanh Khê",
+    "Quận Sơn Trà",
+    "Quận Ngũ Hành Sơn",
+    "Quận Liên Chiểu",
+  ],
+  "Hải Phòng": ["Quận Ngô Quyền", "Quận Lê Chân", "Quận Hồng Bàng", "Quận Hải An"],
+  "Cần Thơ": ["Quận Ninh Kiều", "Quận Cái Răng", "Quận Bình Thủy"],
+  "Bình Dương": ["TP. Thủ Dầu Một", "TP. Dĩ An", "TP. Thuận An"],
+  "Đồng Nai": ["TP. Biên Hòa", "Huyện Long Thành"],
+  "Quảng Ninh": ["TP. Hạ Long", "TP. Cẩm Phả"],
+};
 
 function OrderSummary({
   subtotal,
@@ -7680,7 +7906,7 @@ function OrderSummary({
     <aside className="order-summary">
       <h2>Tóm tắt đơn hàng</h2>
       <div className="voucher">
-        <input placeholder="Mã voucher" />
+        <input placeholder="Mã voucher (VD: GIFTFINDER50)" defaultValue={voucher ? "GIFTFINDER50" : ""} />
         <button onClick={onVoucher}>
           {voucher ? "Đã áp dụng" : "Áp dụng"}
         </button>
@@ -7697,11 +7923,11 @@ function OrderSummary({
         </div>
         <div>
           <dt>Phí vận chuyển</dt>
-          <dd>{money(actualShipping)}</dd>
+          <dd>{actualShipping === 0 && subtotal > 0 ? "Miễn phí (0đ)" : money(actualShipping)}</dd>
         </div>
         {giftWrapFee > 0 && (
           <div>
-            <dt>Gói quà cao cấp</dt>
+            <dt>Gói quà & Thiệp viết tay</dt>
             <dd>+{money(giftWrapFee)}</dd>
           </div>
         )}
@@ -7712,25 +7938,82 @@ function OrderSummary({
       </dl>
       <div className="order-total">
         <span>
-          Tổng cộng<small>Đã bao gồm VAT</small>
+          Tổng thu hộ (COD)<small>Thanh toán khi nhận hàng</small>
         </span>
         <b>{money(total)}</b>
       </div>
       {action}
       <p>
-        <Icon name="shield" size={14} /> Thông tin thanh toán được mã hóa an
-        toàn
+        <Icon name="shield" size={14} /> Đơn hàng được Gian hàng chuẩn bị & giao tận nơi
       </p>
     </aside>
   );
 }
 
-function Checkout({ go }: { go: (p: Page) => void }) {
-  const { items, subtotal, shippingFee, giftWrapFee, hasGiftWrap, clearCart } =
-    useCart();
-  const [payment, setPayment] = useState("vnpay");
+function Checkout({
+  go,
+  onOrderCreated,
+  onNotify,
+}: {
+  go: (p: Page) => void;
+  onOrderCreated?: (orders: MerchantOrder[]) => void;
+  onNotify?: (msg: string) => void;
+}) {
+  const {
+    items,
+    subtotal,
+    giftWrapFee,
+    hasGiftWrap,
+    setHasGiftWrap,
+    giftMessage,
+    setGiftMessage,
+    hidePriceOnPackage,
+    setHidePriceOnPackage,
+    clearCart,
+  } = useCart();
+
+  // Xác định Tỉnh/Thành kho của Shop từ sản phẩm trong giỏ (mặc định Hà Nội cho Tiệm Gốm Mộc)
+  const shopProvince = items[0]?.merchantProvince || "Hà Nội";
+  const shopName = items[0]?.merchantName || "Tiem Gom Moc";
+
+  const [receiverName, setReceiverName] = useState("Nguyễn Minh Anh");
+  const [receiverPhone, setReceiverPhone] = useState("0912345678");
+  const [receiverProvince, setReceiverProvince] = useState("Hà Nội");
+  const [receiverDistrict, setReceiverDistrict] = useState("Quận Cầu Giấy");
+  const [receiverAddress, setReceiverAddress] = useState(
+    "Số 241 Xuân Thủy, Phường Dịch Vọng Hậu",
+  );
+  const [deliveryNote, setDeliveryNote] = useState(
+    "Gọi trước khi giao 15 phút giúp mình nhé",
+  );
+  const [shippingMethod, setShippingMethod] = useState<"Standard" | "Express2H">(
+    "Standard",
+  );
   const [voucher, setVoucher] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isSameProvince =
+    receiverProvince.trim().toLowerCase() === shopProvince.trim().toLowerCase();
+
+  // Nếu đổi sang tỉnh khác kho của Shop mà đang chọn Express2H -> tự động chuyển về Standard
+  useEffect(() => {
+    if (!isSameProvince && shippingMethod === "Express2H") {
+      setShippingMethod("Standard");
+    }
+  }, [isSameProvince, shippingMethod]);
+
+  // Tính phí vận chuyển thực tế dựa trên địa chỉ kho của Shop vs địa chỉ người nhận
+  const calculatedShippingFee = useMemo(() => {
+    if (items.length === 0) return 0;
+    if (shippingMethod === "Express2H" && isSameProvince) {
+      return 50000;
+    }
+    if (subtotal >= 500000) {
+      return 0; // Freeship đơn từ 500.000đ
+    }
+    return isSameProvince ? 25000 : 35000;
+  }, [items.length, shippingMethod, isSameProvince, subtotal]);
 
   if (items.length === 0) {
     return (
@@ -7745,7 +8028,7 @@ function Checkout({ go }: { go: (p: Page) => void }) {
           <h2
             style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}
           >
-            Chưa có sản phẩm để thanh toán
+            Chưa có sản phẩm để đặt hàng
           </h2>
           <p
             style={{
@@ -7756,7 +8039,7 @@ function Checkout({ go }: { go: (p: Page) => void }) {
             }}
           >
             Giỏ hàng của bạn đang trống. Vui lòng chọn món quà yêu thích trước
-            khi tiến hành thanh toán nhé!
+            khi tiến hành đặt hàng nhé!
           </p>
           <Button variant="rose" onClick={() => go("catalog")}>
             Khám phá quà tặng ngay
@@ -7766,14 +8049,69 @@ function Checkout({ go }: { go: (p: Page) => void }) {
     );
   }
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
+    setErrorMsg(null);
+    if (!receiverName.trim()) {
+      setErrorMsg("Vui lòng nhập họ và tên người nhận quà.");
+      return;
+    }
+    if (!receiverPhone.trim()) {
+      setErrorMsg("Vui lòng nhập số điện thoại người nhận.");
+      return;
+    }
+    if (!receiverAddress.trim()) {
+      setErrorMsg("Vui lòng nhập địa chỉ nhận hàng chi tiết.");
+      return;
+    }
+
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      const payloadItems = items.map((i) => ({
+        productId: i.productId && i.productId.length >= 20 ? i.productId : undefined,
+        productName: i.name,
+        productImageUrl: i.image,
+        variant: i.variant || "Tiêu chuẩn",
+        unitPrice: i.price,
+        quantity: i.quantity,
+      }));
+
+      const createdOrders = await merchantService.checkoutOrder({
+        receiverName: receiverName.trim(),
+        receiverPhone: receiverPhone.trim(),
+        receiverProvince,
+        receiverDistrict,
+        receiverAddress: receiverAddress.trim(),
+        deliveryNote: deliveryNote.trim() || undefined,
+        hasGiftWrap,
+        giftMessage: hasGiftWrap ? giftMessage.trim() : undefined,
+        hidePriceOnPackage,
+        shippingMethod,
+        applyVoucher: voucher,
+        items: payloadItems,
+      });
+
+      if (createdOrders && createdOrders.length > 0) {
+        onOrderCreated?.(createdOrders);
+      }
+      onNotify?.("🎉 Đặt hàng COD thành công! Gian hàng đang chuẩn bị quà.");
+
       clearCart();
-      setSubmitting(false);
       go("success");
-    }, 600);
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Không thể tạo đơn hàng. Vui lòng kiểm tra lại thông tin.";
+      setErrorMsg(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const availableDistricts = PROVINCE_DISTRICTS[receiverProvince] || [
+    "Quận Trung Tâm",
+    "Quận Nội Thành",
+  ];
 
   return (
     <main className="shell flow-page">
@@ -7786,113 +8124,334 @@ function Checkout({ go }: { go: (p: Page) => void }) {
           <i />
           <span>3</span>
         </div>
-        <small>Giỏ hàng　 Thanh toán　 Hoàn tất</small>
+        <small>Giỏ hàng　 Đặt hàng COD　 Hoàn tất</small>
       </div>
+
+      {errorMsg && (
+        <div
+          style={{
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            color: "#b91c1c",
+            padding: "12px 16px",
+            borderRadius: 12,
+            marginBottom: 16,
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          ⚠️ {errorMsg}
+        </div>
+      )}
+
       <div className="checkout-layout">
         <section className="checkout-form">
           <div className="form-section">
             <div className="form-title">
               <i>1</i>
               <div>
-                <h2>Thông tin người nhận</h2>
-                <p>Chúng tôi sẽ liên hệ số điện thoại này khi giao quà.</p>
+                <h2>Thông tin người nhận quà</h2>
+                <p>
+                  Gian hàng <b>{shopName}</b> (Kho tại <b>{shopProvince}</b>) sẽ
+                  liên hệ số điện thoại này khi giao quà.
+                </p>
               </div>
             </div>
             <div className="form-grid">
               <label>
-                Họ và tên
-                <input placeholder="Nguyễn Minh Anh" />
+                Họ và tên người nhận *
+                <input
+                  value={receiverName}
+                  onChange={(e) => setReceiverName(e.target.value)}
+                  placeholder="Nguyễn Minh Anh"
+                />
               </label>
               <label>
-                Số điện thoại
-                <input placeholder="09xx xxx xxx" />
-              </label>
-              <label className="full">
-                Địa chỉ chi tiết
-                <input placeholder="Số nhà, tên đường, phường/xã..." />
+                Số điện thoại người nhận *
+                <input
+                  value={receiverPhone}
+                  onChange={(e) => setReceiverPhone(e.target.value)}
+                  placeholder="09xx xxx xxx"
+                />
               </label>
               <label>
-                Tỉnh / Thành phố
-                <select>
-                  <option>TP. Hồ Chí Minh</option>
-                  <option>Hà Nội</option>
-                  <option>Đà Nẵng</option>
+                Tỉnh / Thành phố nhận quà *
+                <select
+                  value={receiverProvince}
+                  onChange={(e) => {
+                    const nextProv = e.target.value;
+                    setReceiverProvince(nextProv);
+                    const nextDists = PROVINCE_DISTRICTS[nextProv] || ["Quận Trung Tâm"];
+                    setReceiverDistrict(nextDists[0]);
+                  }}
+                >
+                  {Object.keys(PROVINCE_DISTRICTS).map((prov) => (
+                    <option key={prov} value={prov}>
+                      {prov} {prov === shopProvince ? `(Cùng tỉnh với kho Shop)` : ""}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
-                Quận / Huyện
-                <select>
-                  <option>Quận 1</option>
-                  <option>Quận 3</option>
-                  <option>Quận Cầu Giấy</option>
+                Quận / Huyện *
+                <select
+                  value={receiverDistrict}
+                  onChange={(e) => setReceiverDistrict(e.target.value)}
+                >
+                  {availableDistricts.map((dist) => (
+                    <option key={dist} value={dist}>
+                      {dist}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="full">
-                Ghi chú giao hàng
-                <textarea placeholder="VD: Gọi trước khi giao, không ghi giá trên gói hàng..." />
+                Địa chỉ chi tiết (Số nhà, ngõ, đường, phường/xã) *
+                <input
+                  value={receiverAddress}
+                  onChange={(e) => setReceiverAddress(e.target.value)}
+                  placeholder="Số nhà, tên đường, tòa nhà, phường/xã..."
+                />
+              </label>
+              <label className="full">
+                Ghi chú giao hàng cho Shipper & Shop
+                <textarea
+                  value={deliveryNote}
+                  onChange={(e) => setDeliveryNote(e.target.value)}
+                  placeholder="VD: Gọi trước khi giao, giao giờ hành chính..."
+                />
               </label>
             </div>
           </div>
+
+          {/* MỤC 2: CHỌN PHƯƠNG THỨC VẬN CHUYỂN THỰC TẾ DỰA TRÊN TỈNH/THÀNH KHO SHOP */}
           <div className="form-section">
             <div className="form-title">
               <i>2</i>
               <div>
-                <h2>Phương thức thanh toán</h2>
-                <p>Chọn phương thức phù hợp nhất với bạn.</p>
-              </div>
-            </div>
-            <label
-              className={`payment-option ${
-                payment === "vnpay" ? "selected" : ""
-              }`}
-            >
-              <input
-                type="radio"
-                checked={payment === "vnpay"}
-                onChange={() => setPayment("vnpay")}
-              />
-              <span className="radio" />
-              <div className="vnpay-logo">
-                <b>VN</b>PAY
-              </div>
-              <div>
-                <b>Cổng thanh toán Quốc gia VNPAY</b>
-                <small>
-                  Quét mã QR, thẻ ATM 30+ ngân hàng hoặc thẻ quốc tế
-                </small>
+                <h2>Phương thức vận chuyển</h2>
                 <p>
-                  <Badge>VNPAY-QR</Badge>
-                  <Badge>NAPAS</Badge>
-                  <Badge>VISA</Badge>
-                  <Badge>Mastercard</Badge>
+                  Tự động tính theo khoảng cách từ kho <b>{shopName} ({shopProvince})</b> đến{" "}
+                  <b>{receiverProvince}</b>.
                 </p>
               </div>
-              <Badge tone="green">Khuyên dùng</Badge>
-            </label>
-            <label
-              className={`payment-option ${
-                payment === "cod" ? "selected" : ""
-              }`}
-            >
-              <input
-                type="radio"
-                checked={payment === "cod"}
-                onChange={() => setPayment("cod")}
-              />
-              <span className="radio" />
-              <i className="cod-icon">₫</i>
-              <div>
-                <b>Thanh toán khi nhận hàng (COD)</b>
-                <small>Thanh toán tiền mặt cho nhân viên giao hàng.</small>
-              </div>
-            </label>
+            </div>
+
+            <div style={{ display: "grid", gap: 12 }}>
+              <label
+                className={`payment-option ${
+                  shippingMethod === "Standard" ? "selected" : ""
+                }`}
+                style={{ cursor: "pointer" }}
+              >
+                <input
+                  type="radio"
+                  checked={shippingMethod === "Standard"}
+                  onChange={() => setShippingMethod("Standard")}
+                />
+                <span className="radio" />
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "#eef2ff",
+                    color: "#4f46e5",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    flexShrink: 0,
+                  }}
+                >
+                  🚚
+                </div>
+                <div style={{ flex: 1 }}>
+                  <b>
+                    {isSameProvince
+                      ? `Giao Tiêu Chuẩn Nội Tỉnh (${shopProvince})`
+                      : `Giao Tiêu Chuẩn Liên Tỉnh (${shopProvince} → ${receiverProvince})`}
+                  </b>
+                  <small>
+                    {isSameProvince
+                      ? "Dự kiến nhận hàng trong 1–2 ngày qua GHN / GHTK / Viettel Post."
+                      : "Dự kiến nhận hàng trong 2–4 ngày qua GHN / GHTK / Viettel Post."}
+                  </small>
+                </div>
+                <Badge tone="green">
+                  {subtotal >= 500000
+                    ? "Freeship (0đ)"
+                    : isSameProvince
+                      ? "25.000đ"
+                      : "35.000đ"}
+                </Badge>
+              </label>
+
+              <label
+                className={`payment-option ${
+                  shippingMethod === "Express2H" ? "selected" : ""
+                }`}
+                style={{
+                  cursor: isSameProvince ? "pointer" : "not-allowed",
+                  opacity: isSameProvince ? 1 : 0.6,
+                  background: isSameProvince ? undefined : "#f8fafc",
+                }}
+              >
+                <input
+                  type="radio"
+                  disabled={!isSameProvince}
+                  checked={shippingMethod === "Express2H"}
+                  onChange={() => {
+                    if (isSameProvince) setShippingMethod("Express2H");
+                  }}
+                />
+                <span className="radio" />
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: isSameProvince ? "#fef3c7" : "#e2e8f0",
+                    color: isSameProvince ? "#d97706" : "#64748b",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    flexShrink: 0,
+                  }}
+                >
+                  ⚡
+                </div>
+                <div style={{ flex: 1 }}>
+                  <b>Giao Hỏa Tốc Nội Thành Trong 2 Giờ (GrabExpress / Ahamove)</b>
+                  <small>
+                    {isSameProvince
+                      ? `Khả dụng vì người nhận cùng khu vực ${shopProvince} với kho của Shop. Rất phù hợp khi cần tặng quà gấp trong ngày!`
+                      : `Không khả dụng do Kho của Shop đặt tại ${shopProvince}, không thể giao hỏa tốc 2h đến ${receiverProvince}.`}
+                  </small>
+                </div>
+                <Badge tone={isSameProvince ? "rose" : "neutral"}>
+                  {isSameProvince ? "50.000đ" : "Khác tỉnh"}
+                </Badge>
+              </label>
+            </div>
           </div>
-          <div className="form-section review-order">
+
+          {/* MỤC 3: TÙY CHỌN GÓI QUÀ & THIỆP VIẾT TAY */}
+          <div className="form-section">
             <div className="form-title">
               <i>3</i>
               <div>
+                <h2>Tùy chọn gói quà & Thiệp chúc mừng</h2>
+                <p>Chủ gian hàng sẽ trực tiếp đóng gói hộp quà và viết thiệp tay.</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 12 }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: hasGiftWrap ? "1.5px solid #f43f5e" : "1px solid #e2e8f0",
+                  background: hasGiftWrap ? "#fff1f2" : "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={hasGiftWrap}
+                    onChange={(e) => setHasGiftWrap(e.target.checked)}
+                  />
+                  <div>
+                    <b style={{ display: "block", fontSize: 14 }}>
+                      🎁 Đóng hộp quà cao cấp thắt nơ lụa & Thiệp viết tay
+                    </b>
+                    <small style={{ color: "#64748b", fontSize: 12 }}>
+                      Bao gồm hộp quà cứng, giấy rơm lót chống sốc và thiệp chúc mừng
+                    </small>
+                  </div>
+                </div>
+                <strong style={{ color: "#e11d48", fontSize: 14 }}>+30.000đ</strong>
+              </label>
+
+              {hasGiftWrap && (
+                <label style={{ display: "grid", gap: 6, fontSize: 13, fontWeight: 600 }}>
+                  <span>💌 Nội dung lời chúc viết trên thiệp:</span>
+                  <textarea
+                    rows={2}
+                    value={giftMessage}
+                    onChange={(e) => setGiftMessage(e.target.value)}
+                    placeholder="Nhập lời nhắn gửi yêu thương để Shop viết lên thiệp..."
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #cbd5e1",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </label>
+              )}
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={hidePriceOnPackage}
+                  onChange={(e) => setHidePriceOnPackage(e.target.checked)}
+                />
+                <span>
+                  🤫 <b>Che giá sản phẩm trên gói hàng:</b> Không in giá tiền lên tem dán bên ngoài khi gửi tặng trực tiếp cho người nhận.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* MỤC 4: PHƯƠNG THỨC THANH TOÁN COD */}
+          <div className="form-section">
+            <div className="form-title">
+              <i>4</i>
+              <div>
+                <h2>Phương thức thanh toán</h2>
+                <p>Đơn hàng đặt từ Gian hàng đối tác áp dụng thanh toán khi nhận hàng (COD).</p>
+              </div>
+            </div>
+            <label className="payment-option selected">
+              <input type="radio" checked readOnly />
+              <span className="radio" />
+              <i className="cod-icon">₫</i>
+              <div>
+                <b>Thanh toán tiền mặt khi nhận hàng (COD)</b>
+                <small>
+                  Kiểm tra kiện hàng và thanh toán trực tiếp cho nhân viên giao hàng (Shipper).
+                </small>
+              </div>
+              <Badge tone="green">Mặc định</Badge>
+            </label>
+          </div>
+
+          <div className="form-section review-order">
+            <div className="form-title">
+              <i>5</i>
+              <div>
                 <h2>Xem lại đơn hàng ({items.length} món)</h2>
-                <p>Kiểm tra món quà lần cuối trước khi thanh toán.</p>
+                <p>Kiểm tra món quà lần cuối trước khi xác nhận đặt hàng.</p>
               </div>
             </div>
             {items.map((item) => (
@@ -7901,7 +8460,8 @@ function Checkout({ go }: { go: (p: Page) => void }) {
                 <div>
                   <b>{item.name}</b>
                   <small>
-                    {item.variant} · Số lượng: {item.quantity}
+                    {item.variant} · Số lượng: {item.quantity} · Kho:{" "}
+                    {item.merchantProvince || shopProvince}
                   </small>
                   {hasGiftWrap && <Badge tone="rose">Có gói quà & thiệp</Badge>}
                 </div>
@@ -7912,7 +8472,7 @@ function Checkout({ go }: { go: (p: Page) => void }) {
         </section>
         <OrderSummary
           subtotal={subtotal}
-          shippingFee={shippingFee}
+          shippingFee={calculatedShippingFee}
           giftWrapFee={giftWrapFee}
           voucher={voucher}
           onVoucher={() => setVoucher(!voucher)}
@@ -7923,10 +8483,8 @@ function Checkout({ go }: { go: (p: Page) => void }) {
               disabled={submitting}
             >
               {submitting
-                ? "Đang xử lý đơn hàng..."
-                : payment === "vnpay"
-                  ? "Xác nhận & Thanh toán qua VNPAY"
-                  : "Xác nhận đặt hàng"}{" "}
+                ? "Đang gửi đơn đến Gian hàng..."
+                : "Xác nhận đặt hàng (COD)"}{" "}
               <Icon name="arrow" />
             </Button>
           }
@@ -7936,7 +8494,26 @@ function Checkout({ go }: { go: (p: Page) => void }) {
   );
 }
 
-function Success({ go }: { go: (p: Page) => void }) {
+function Success({
+  go,
+  orders,
+}: {
+  go: (p: Page) => void;
+  orders?: MerchantOrder[];
+}) {
+  const firstOrder = orders && orders.length > 0 ? orders[0] : null;
+  const orderCode = firstOrder?.orderCode || "GF-261107-8892";
+  const receiverName = firstOrder?.receiverName || "Nguyễn Minh Anh";
+  const receiverPhone = firstOrder?.receiverPhone || "0912345678";
+  const fullDestination = firstOrder
+    ? `${firstOrder.receiverAddress}, ${firstOrder.receiverDistrict}, ${firstOrder.receiverProvince}`
+    : "Quận Cầu Giấy, Hà Nội";
+  const giftMsg =
+    firstOrder?.giftMessage || "Chúc bạn luôn rạng rỡ và tràn ngập niềm vui!";
+  const isExpress = firstOrder?.shippingMethod === "Express2H";
+  const totalCod = firstOrder ? firstOrder.totalAmount : 489000;
+  const shopName = firstOrder?.shopName || "Tiem Gom Moc";
+
   return (
     <main className="success-page">
       <div className="success-card">
@@ -7945,68 +8522,83 @@ function Success({ go }: { go: (p: Page) => void }) {
           <i />
           <i />
         </div>
-        <Badge tone="green">THANH TOÁN THÀNH CÔNG</Badge>
-        <h1>Cảm ơn bạn!</h1>
+        <Badge tone="green">ĐẶT HÀNG COD THÀNH CÔNG</Badge>
+        <h1>Cảm ơn bạn đã đặt quà!</h1>
         <p>
-          Đơn hàng <b>#GF-8892</b> đã được thanh toán thành công qua VNPAY.
+          Đơn hàng <b>#{orderCode}</b> đã được chuyển trực tiếp tới gian hàng{" "}
+          <b>{shopName}</b>.
           <br />
-          Một món quà tuyệt vời đang được chuẩn bị.
+          Chủ shop sẽ đóng gói quà, viết thiệp và bàn giao cho đơn vị vận chuyển.
         </p>
         <div className="timeline">
           <div className="done">
             <i>
               <Icon name="check" size={14} />
             </i>
-            <b>Đã thanh toán</b>
-            <small>Hôm nay, 10:32</small>
+            <b>Đã tiếp nhận đơn</b>
+            <small>Vừa xong</small>
           </div>
           <span />
           <div className="active">
             <i>2</i>
-            <b>Đang chuẩn bị quà</b>
-            <small>Dự kiến 2–4 giờ</small>
+            <b>Shop chuẩn bị quà</b>
+            <small>{isExpress ? "Giao ngay trong 2h" : "Đóng hộp & viết thiệp"}</small>
           </div>
           <span />
           <div>
             <i>3</i>
-            <b>Đang giao hàng</b>
-            <small>Dự kiến 20/10</small>
+            <b>Shipper giao & thu COD</b>
+            <small>{isExpress ? "Hỏa tốc 2H hôm nay" : "Dự kiến 1–3 ngày"}</small>
           </div>
         </div>
         <div className="receipt">
           <div>
             <span>Mã đơn hàng</span>
-            <b>#GF-8892</b>
+            <b>#{orderCode}</b>
+          </div>
+          <div>
+            <span>Gian hàng xử lý</span>
+            <b>🏪 {shopName}</b>
           </div>
           <div>
             <span>Người nhận</span>
-            <b>Nguyễn Minh Anh · 09xx xxx xxx</b>
+            <b>
+              {receiverName} · {receiverPhone}
+            </b>
           </div>
           <div>
             <span>Giao đến</span>
-            <b>Quận 1, TP. Hồ Chí Minh</b>
+            <b>{fullDestination}</b>
           </div>
           <div>
-            <span>Lời nhắn trên thiệp</span>
-            <b>“Chúc em luôn rạng rỡ như những đóa hoa...”</b>
+            <span>Hình thức vận chuyển</span>
+            <b className="green">
+              {isExpress
+                ? "⚡ Giao Hỏa Tốc 2H Nội Thành"
+                : "🚚 Giao Tiêu Chuẩn"}
+            </b>
           </div>
-          <div>
-            <span>Thời gian giao dự kiến</span>
-            <b className="green">Trước 18:00, ngày 20/10</b>
-          </div>
+          {firstOrder?.hasGiftWrap !== false && (
+            <div>
+              <span>Lời nhắn trên thiệp</span>
+              <b>“{giftMsg}”</b>
+            </div>
+          )}
           <div className="receipt-total">
-            <span>Tổng thanh toán qua VNPAY</span>
-            <b>325.000đ</b>
+            <span>Tổng thanh toán khi nhận hàng (COD)</span>
+            <b>{money(totalCod)}</b>
           </div>
         </div>
         <div className="success-actions">
-          <Button variant="secondary">Xem đơn hàng của tôi</Button>
+          <Button variant="secondary" onClick={() => go("catalog")}>
+            Xem thêm quà khác
+          </Button>
           <Button variant="rose" onClick={() => go("home")}>
-            Tiếp tục mua sắm <Icon name="arrow" />
+            Về trang chủ <Icon name="arrow" />
           </Button>
         </div>
         <small className="email-note">
-          Biên nhận đã được gửi đến email của bạn.
+          Thông tin đơn hàng đã được cập nhật vào hệ thống Quản lý đơn hàng của Shop.
         </small>
       </div>
     </main>
@@ -8166,7 +8758,9 @@ function QrPurchaseModal({
         </button>
 
         <div className="qr-modal-header">
-          <div className={`qr-platform-badge ${isTikTok ? "tiktok" : "shopee"}`}>
+          <div
+            className={`qr-platform-badge ${isTikTok ? "tiktok" : "shopee"}`}
+          >
             {isTikTok ? "🎵 TIKTOK SHOP" : "🛍️ SHOPEE VIỆT NAM"}
           </div>
           <h3>Quét mã để mua trên App {platformName}</h3>
@@ -8189,7 +8783,9 @@ function QrPurchaseModal({
               <div className="qr-product-meta">
                 <span className="qr-product-price">{money(product.price)}</span>
                 {product.discount && (
-                  <span className="qr-product-discount">{product.discount}</span>
+                  <span className="qr-product-discount">
+                    {product.discount}
+                  </span>
                 )}
                 {Boolean(product.rating) && (
                   <span className="qr-product-rating">★ {product.rating}</span>
@@ -8267,7 +8863,10 @@ function QrPurchaseModal({
         </div>
 
         <div className="qr-footer-trust">
-          <span>🔒 Liên kết đối tác chính thức · Bảo lưu 100% ưu đãi giảm giá & hoa hồng</span>
+          <span>
+            🔒 Liên kết đối tác chính thức · Bảo lưu 100% ưu đãi giảm giá & hoa
+            hồng
+          </span>
         </div>
       </div>
     </div>
@@ -8509,7 +9108,7 @@ function FloatingAudioPlayer({
 
   useEffect(() => {
     if (isActive && audioRef.current) {
-      audioRef.current.volume = 0.18; // Âm lượng 18% êm dịu, nhẹ nhàng làm nhạc nền
+      audioRef.current.volume = 0.3; // Âm lượng 30% êm ái vừa vặn
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise
@@ -8542,7 +9141,7 @@ function FloatingAudioPlayer({
     if (!isActive) return;
     const handleFirstInteraction = () => {
       if (audioRef.current && audioRef.current.paused) {
-        audioRef.current.volume = 0.18;
+        audioRef.current.volume = 0.3;
         audioRef.current
           .play()
           .then(() => setIsPlaying(true))
@@ -8590,7 +9189,7 @@ function FloatingAudioPlayer({
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.volume = 0.18;
+      audioRef.current.volume = 0.3;
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
@@ -8710,6 +9309,7 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
     null,
   );
+  const [lastCreatedOrders, setLastCreatedOrders] = useState<MerchantOrder[]>([]);
   const [qrModalData, setQrModalData] = useState<{
     isOpen: boolean;
     product: ProductItem | null;
@@ -8986,27 +9586,30 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [productsList]);
 
-  // Tải 244 sản phẩm thật từ Database PostgreSQL qua Backend API (cân bằng cả Shopee và TikTok Shop)
+  // Tải toàn bộ sản phẩm thật từ Database PostgreSQL qua Backend API (cân bằng cả Shopee và TikTok Shop)
   useEffect(() => {
     let isCancelled = false;
     setLoadingProducts(true);
 
     Promise.all([
-      productService.getProducts({ source: 0, pageSize: 120 }), // 116 sản phẩm Shopee trong DB
-      productService.getProducts({ source: 1, pageSize: 120 }), // 124 sản phẩm TikTok Shop trong DB
+      productService.getProducts({ source: 0, pageSize: 150 }), // 135 sản phẩm Shopee trong DB
+      productService.getProducts({ source: 1, pageSize: 150 }), // 132 sản phẩm TikTok Shop trong DB
+      productService.getProducts({ source: 4, pageSize: 50 }), // Sản phẩm Gian hàng đối tác DirectMerchant
     ])
-      .then(([shopeeRes, tiktokRes]) => {
+      .then(([shopeeRes, tiktokRes, directRes]) => {
         if (isCancelled) return;
 
         const shopeeItems = (shopeeRes?.items || []).map(mapDtoToProductItem);
         const tiktokItems = (tiktokRes?.items || []).map(mapDtoToProductItem);
+        const directItems = (directRes?.items || []).map(mapDtoToProductItem);
 
-        // Trộn xen kẽ đều đặn: 1 sản phẩm Shopee, 1 sản phẩm TikTok Shop
+        // Trộn xen kẽ đều đặn: 1 sản phẩm Shopee, 1 sản phẩm TikTok Shop, kèm các sản phẩm DirectMerchant
         const mixed: ProductItem[] = [];
-        const maxLen = Math.max(shopeeItems.length, tiktokItems.length);
+        const maxLen = Math.max(shopeeItems.length, tiktokItems.length, directItems.length);
         for (let i = 0; i < maxLen; i++) {
           if (shopeeItems[i]) mixed.push(shopeeItems[i]);
           if (tiktokItems[i]) mixed.push(tiktokItems[i]);
+          if (directItems[i]) mixed.push(directItems[i]);
         }
 
         if (mixed.length > 0) {
@@ -9085,7 +9688,7 @@ export default function App() {
 
   return (
     <>
-      {page !== "auth" && (
+      {page !== "auth" && page !== "merchant" && page !== "admin" && (
         <Header
           go={go}
           currentPage={page}
@@ -9139,8 +9742,14 @@ export default function App() {
       {page === "admin" && <AdminConsole go={go} />}
       {page === "auth" && <AuthPage go={go} />}{" "}
       {page === "cart" && <Cart go={go} />}{" "}
-      {page === "checkout" && <Checkout go={go} />}{" "}
-      {page === "success" && <Success go={go} />}{" "}
+      {page === "checkout" && (
+        <Checkout
+          go={go}
+          onOrderCreated={(orders) => setLastCreatedOrders(orders)}
+          onNotify={(msg) => setToastMsg(msg)}
+        />
+      )}{" "}
+      {page === "success" && <Success go={go} orders={lastCreatedOrders} />}{" "}
       {affiliate && (
         <AffiliateModal
           close={() => {
@@ -9179,7 +9788,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {page !== "auth" && (
+      {page !== "auth" && page !== "merchant" && page !== "admin" && (
         <AiChatbotWidget
           go={go}
           products={productsList}
@@ -9187,7 +9796,7 @@ export default function App() {
           onSelectProduct={handleOpenProduct}
         />
       )}
-      {page !== "auth" && (
+      {page !== "auth" && page !== "merchant" && page !== "admin" && (
         <FloatingAudioPlayer
           isActive={
             page === "catalog" &&
