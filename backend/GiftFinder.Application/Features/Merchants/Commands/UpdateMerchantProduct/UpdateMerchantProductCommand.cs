@@ -15,7 +15,8 @@ public class UpdateMerchantProductCommand : IRequest<MerchantProductDto>
     public long Price { get; set; }
     public long? OriginalPrice { get; set; }
     public string? ImageUrl { get; set; }
-    public string OriginalUrl { get; set; } = string.Empty;
+    public string? OriginalUrl { get; set; }
+    public int? StockQuantity { get; set; }
     public List<Guid>? TagIds { get; set; }
     public List<string>? CustomTagNames { get; set; }
     public List<ZodiacSign>? SuitableZodiacs { get; set; }
@@ -41,11 +42,6 @@ public class UpdateMerchantProductCommandValidator : AbstractValidator<UpdateMer
                 .GreaterThanOrEqualTo(x => x.Price)
                 .WithMessage("Giá gốc trước giảm phải lớn hơn hoặc bằng giá bán.");
         });
-
-        RuleFor(x => x.OriginalUrl)
-            .NotEmpty().WithMessage("Đường dẫn đặt mua không được để trống.")
-            .Must(uri => Uri.TryCreate(uri, UriKind.Absolute, out _))
-            .WithMessage("Đường dẫn đặt mua phải là một URL hợp lệ.");
 
         When(x => !string.IsNullOrWhiteSpace(x.ImageUrl), () =>
         {
@@ -99,7 +95,8 @@ public class UpdateMerchantProductCommandHandler : IRequestHandler<UpdateMerchan
             request.OriginalUrl,
             request.Description,
             request.ImageUrl,
-            request.OriginalPrice
+            request.OriginalPrice,
+            request.StockQuantity
         );
 
         if (request.SuitableZodiacs != null)
@@ -113,7 +110,6 @@ public class UpdateMerchantProductCommandHandler : IRequestHandler<UpdateMerchan
             var requestedTagIds = request.TagIds.Distinct().ToList();
             var existingProductTags = product.ProductTags.ToList();
 
-            // Xóa tag không còn chọn
             foreach (var pt in existingProductTags)
             {
                 if (!requestedTagIds.Contains(pt.TagId))
@@ -122,7 +118,6 @@ public class UpdateMerchantProductCommandHandler : IRequestHandler<UpdateMerchan
                 }
             }
 
-            // Thêm tag mới
             var currentTagIds = product.ProductTags.Select(pt => pt.TagId).ToList();
             var tagsToAdd = requestedTagIds.Except(currentTagIds).ToList();
 
@@ -136,7 +131,6 @@ public class UpdateMerchantProductCommandHandler : IRequestHandler<UpdateMerchan
             }
         }
 
-        // Hỗ trợ Merchant tự gõ thêm Tag mới bất kỳ bằng tay
         if (request.CustomTagNames != null && request.CustomTagNames.Count > 0)
         {
             var allTags = await _context.Tags.ToListAsync(cancellationToken);
@@ -183,6 +177,7 @@ public class UpdateMerchantProductCommandHandler : IRequestHandler<UpdateMerchan
             Source = product.Source.ToString(),
             Status = product.Status.ToString(),
             RejectReason = product.RejectReason,
+            StockQuantity = product.StockQuantity,
             IsFeatured = product.IsFeatured,
             FeaturedUntil = product.FeaturedUntil,
             SuitableZodiacs = product.SuitableZodiacs.Select(z => z.ToString()).ToList(),

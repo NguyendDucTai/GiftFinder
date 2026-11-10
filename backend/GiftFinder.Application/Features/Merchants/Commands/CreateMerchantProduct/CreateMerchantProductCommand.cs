@@ -15,7 +15,8 @@ public class CreateMerchantProductCommand : IRequest<MerchantProductDto>
     public long Price { get; set; }
     public long? OriginalPrice { get; set; }
     public string? ImageUrl { get; set; }
-    public string OriginalUrl { get; set; } = string.Empty;
+    public string? OriginalUrl { get; set; }
+    public int StockQuantity { get; set; } = 50;
     public List<Guid>? TagIds { get; set; }
     public List<string>? CustomTagNames { get; set; }
     public List<ZodiacSign>? SuitableZodiacs { get; set; }
@@ -32,17 +33,15 @@ public class CreateMerchantProductCommandValidator : AbstractValidator<CreateMer
         RuleFor(x => x.Price)
             .GreaterThan(0).WithMessage("Giá sản phẩm phải lớn hơn 0.");
 
+        RuleFor(x => x.StockQuantity)
+            .GreaterThanOrEqualTo(0).WithMessage("Số lượng tồn kho không được nhỏ hơn 0.");
+
         When(x => x.OriginalPrice.HasValue, () =>
         {
             RuleFor(x => x.OriginalPrice!.Value)
                 .GreaterThanOrEqualTo(x => x.Price)
                 .WithMessage("Giá gốc trước giảm phải lớn hơn hoặc bằng giá bán.");
         });
-
-        RuleFor(x => x.OriginalUrl)
-            .NotEmpty().WithMessage("Đường dẫn đặt mua của shop không được để trống.")
-            .Must(uri => Uri.TryCreate(uri, UriKind.Absolute, out _))
-            .WithMessage("Đường dẫn đặt mua phải là một URL hợp lệ.");
 
         When(x => !string.IsNullOrWhiteSpace(x.ImageUrl), () =>
         {
@@ -80,16 +79,17 @@ public class CreateMerchantProductCommandHandler : IRequestHandler<CreateMerchan
             throw new InvalidOperationException("Tài khoản của bạn chưa đăng ký hồ sơ gian hàng Merchant.");
         }
 
-        // Tạo Product với trạng thái mặc định là Pending (Chờ Admin duyệt)
+        // Tạo Product DirectMerchant (Không bắt buộc nhập link Shopee/TikTok ngoài)
         var product = new Product(
             request.Name.Trim(),
             request.Price,
-            request.OriginalUrl.Trim(),
+            request.OriginalUrl ?? string.Empty,
             ProductSource.DirectMerchant,
             externalProductId: null,
             imageUrl: request.ImageUrl?.Trim(),
             originalPrice: request.OriginalPrice,
-            merchantId: merchant.Id
+            merchantId: merchant.Id,
+            stockQuantity: request.StockQuantity > 0 ? request.StockQuantity : 50
         );
 
         product.SetDescription(request.Description);
@@ -163,6 +163,7 @@ public class CreateMerchantProductCommandHandler : IRequestHandler<CreateMerchan
             Source = product.Source.ToString(),
             Status = product.Status.ToString(),
             RejectReason = product.RejectReason,
+            StockQuantity = product.StockQuantity,
             IsFeatured = product.IsFeatured,
             FeaturedUntil = product.FeaturedUntil,
             SuitableZodiacs = product.SuitableZodiacs.Select(z => z.ToString()).ToList(),

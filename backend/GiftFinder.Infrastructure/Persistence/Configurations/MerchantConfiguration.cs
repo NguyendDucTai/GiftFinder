@@ -1,4 +1,4 @@
-﻿using GiftFinder.Domain.Entities;
+using GiftFinder.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,5 +26,13 @@ public class MerchantConfiguration : IEntityTypeConfiguration<Merchant>
 
         builder.Property(m => m.BusinessLicense)
             .HasMaxLength(100);
+
+        builder.Property(m => m.PickupProvince)
+            .IsRequired()
+            .HasMaxLength(100)
+            .HasDefaultValue("Hà Nội");
+
+        builder.Property(m => m.PickupAddress)
+            .HasMaxLength(300);
     }
 }

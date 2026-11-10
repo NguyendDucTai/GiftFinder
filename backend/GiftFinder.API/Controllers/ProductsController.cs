@@ -37,6 +37,7 @@ public class ProductsController : ControllerBase
     {
         var query = context.Products
             .AsNoTracking()
+            .Include(p => p.Merchant)
             .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
             .AsQueryable();
@@ -62,7 +63,7 @@ public class ProductsController : ControllerBase
         }
 
         var total = await query.CountAsync();
-        var safePageSize = Math.Clamp(pageSize, 1, 100);
+        var safePageSize = Math.Clamp(pageSize, 1, 200);
         var safePage = Math.Max(1, page);
 
         var items = await query
@@ -84,6 +85,10 @@ public class ProductsController : ControllerBase
                 p.RejectReason,
                 p.Rating,
                 p.TotalReviews,
+                p.StockQuantity,
+                p.MerchantId,
+                MerchantName = p.Merchant != null ? p.Merchant.ShopName : null,
+                MerchantProvince = p.Merchant != null ? p.Merchant.PickupProvince : null,
                 p.CreatedAt,
                 Tags = p.ProductTags.Select(pt => new
                 {
@@ -112,6 +117,7 @@ public class ProductsController : ControllerBase
     {
         var product = await context.Products
             .AsNoTracking()
+            .Include(p => p.Merchant)
             .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -134,6 +140,10 @@ public class ProductsController : ControllerBase
             product.RejectReason,
             product.Rating,
             product.TotalReviews,
+            product.StockQuantity,
+            product.MerchantId,
+            MerchantName = product.Merchant != null ? product.Merchant.ShopName : null,
+            MerchantProvince = product.Merchant != null ? product.Merchant.PickupProvince : null,
             product.CreatedAt,
             Tags = product.ProductTags.Select(pt => new
             {

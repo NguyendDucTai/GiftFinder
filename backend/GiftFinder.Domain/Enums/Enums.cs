@@ -1,4 +1,4 @@
-﻿namespace GiftFinder.Domain.Enums;
+namespace GiftFinder.Domain.Enums;
 
 public enum UserRole
 {
@@ -80,4 +80,19 @@ public enum NotificationType
     Reminder = 1,       // Nhắc lịch kỷ niệm/sinh nhật (UC-21)
     PriceDrop = 2,      // Thông báo giảm giá món trong Wishlist (UC-22)
     RenewalAlert = 3    // Thông báo gia hạn Premium/Featured (UC-23)
+}
+
+public enum MerchantOrderStatus
+{
+    Pending = 0,        // Chờ Shop xác nhận
+    Packing = 1,        // Đang gói quà & viết thiệp
+    Shipping = 2,       // Đang giao hàng (Shipper đang giao)
+    Completed = 3,      // Đã giao thành công
+    Cancelled = 4       // Đã hủy
+}
+
+public enum ShippingMethodType
+{
+    Standard = 0,       // Giao tiêu chuẩn (Nội tỉnh 25k / Liên tỉnh 35k)
+    Express2H = 1       // Giao hỏa tốc nội thành 2h (50k - Chỉ mở khi cùng Tỉnh/Thành)
 }

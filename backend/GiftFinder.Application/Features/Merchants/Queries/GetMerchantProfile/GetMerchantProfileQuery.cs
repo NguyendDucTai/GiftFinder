@@ -45,6 +45,8 @@ public class GetMerchantProfileQueryHandler : IRequestHandler<GetMerchantProfile
             ContactEmail = merchant.ContactEmail,
             ContactPhone = merchant.ContactPhone,
             BusinessLicense = merchant.BusinessLicense,
+            PickupProvince = merchant.PickupProvince,
+            PickupAddress = merchant.PickupAddress,
             IsVerified = merchant.IsVerified,
             VerifiedAt = merchant.VerifiedAt,
             CreatedAt = merchant.CreatedAt

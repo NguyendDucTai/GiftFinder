@@ -5,4 +5,5 @@ namespace GiftFinder.Application.Features.Merchants.Queries.GetMerchantDashboard
 
 public class GetMerchantDashboardStatsQuery : IRequest<MerchantDashboardStatsDto>
 {
+    public int Days { get; set; } = 7;
 }

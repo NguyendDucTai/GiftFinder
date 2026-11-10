@@ -66,6 +66,7 @@ public class GetMerchantProductByIdQueryHandler : IRequestHandler<GetMerchantPro
             Source = product.Source.ToString(),
             Status = product.Status.ToString(),
             RejectReason = product.RejectReason,
+            StockQuantity = product.StockQuantity,
             IsFeatured = product.IsFeatured,
             FeaturedUntil = product.FeaturedUntil,
             SuitableZodiacs = product.SuitableZodiacs.Select(z => z.ToString()).ToList(),

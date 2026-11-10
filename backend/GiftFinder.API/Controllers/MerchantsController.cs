@@ -1,12 +1,15 @@
 using GiftFinder.Application.Features.Merchants.Commands.BuyFeaturedPlacement;
 using GiftFinder.Application.Features.Merchants.Commands.CancelFeaturedPlacement;
+using GiftFinder.Application.Features.Merchants.Commands.CreateMerchantOrder;
 using GiftFinder.Application.Features.Merchants.Commands.CreateMerchantProduct;
 using GiftFinder.Application.Features.Merchants.Commands.DeleteMerchantProduct;
 using GiftFinder.Application.Features.Merchants.Commands.RegisterMerchant;
 using GiftFinder.Application.Features.Merchants.Commands.SuggestProductTagsAi;
+using GiftFinder.Application.Features.Merchants.Commands.UpdateMerchantOrderStatus;
 using GiftFinder.Application.Features.Merchants.Commands.UpdateMerchantProduct;
 using GiftFinder.Application.Features.Merchants.Commands.UpdateMerchantProfile;
 using GiftFinder.Application.Features.Merchants.Queries.GetMerchantDashboardStats;
+using GiftFinder.Application.Features.Merchants.Queries.GetMerchantOrders;
 using GiftFinder.Application.Features.Merchants.Queries.GetMerchantProductById;
 using GiftFinder.Application.Features.Merchants.Queries.GetMerchantProfile;
 using GiftFinder.Application.Features.Merchants.Queries.GetMyProducts;
@@ -75,7 +78,7 @@ public class MerchantsController : ControllerBase
     }
 
     /// <summary>
-    /// Cập nhật thông tin hồ sơ gian hàng (Tên shop, SĐT, Email, Giấy phép)
+    /// Cập nhật thông tin hồ sơ gian hàng (Tên shop, SĐT, Email, Giấy phép, Tỉnh/Thành kho lấy hàng)
     /// </summary>
     [HttpPut("profile")]
     [Authorize(Roles = "Merchant,Admin")]
@@ -85,13 +88,44 @@ public class MerchantsController : ControllerBase
     }
 
     /// <summary>
-    /// [UC-19] Báo cáo thống kê hiệu quả gian hàng (Tổng quà, Lượt click Zalo/Web, Quà Featured, Top quà hot)
+    /// [UC-19] Báo cáo thống kê hiệu quả gian hàng (Tổng quà, Lượt click, Biểu đồ tăng trưởng, Đơn hàng, Doanh thu)
     /// </summary>
     [HttpGet("dashboard-stats")]
     [Authorize(Roles = "Merchant,Admin")]
-    public async Task<IActionResult> GetDashboardStats()
+    public async Task<IActionResult> GetDashboardStats([FromQuery] int days = 7)
     {
-        return await ExecuteSafeAsync(() => _mediator.Send(new GetMerchantDashboardStatsQuery()));
+        return await ExecuteSafeAsync(() => _mediator.Send(new GetMerchantDashboardStatsQuery { Days = days }));
+    }
+
+    /// <summary>
+    /// Khách hàng đặt mua sản phẩm trực tiếp từ Gian hàng đối tác (Thanh toán COD khi nhận hàng)
+    /// </summary>
+    [HttpPost("orders/checkout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CheckoutOrder([FromBody] CreateMerchantOrderCommand command)
+    {
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Chủ shop lấy danh sách toàn bộ đơn đặt hàng của gian hàng mình
+    /// </summary>
+    [HttpGet("orders")]
+    [Authorize(Roles = "Merchant,Admin")]
+    public async Task<IActionResult> GetMerchantOrders([FromQuery] MerchantOrderStatus? status = null)
+    {
+        return await ExecuteSafeAsync(() => _mediator.Send(new GetMerchantOrdersQuery { Status = status }));
+    }
+
+    /// <summary>
+    /// Chủ shop cập nhật trạng thái đơn hàng (Packing -> Shipping kèm mã vận đơn -> Completed / Cancelled)
+    /// </summary>
+    [HttpPut("orders/{id}/status")]
+    [Authorize(Roles = "Merchant,Admin")]
+    public async Task<IActionResult> UpdateOrderStatus(Guid id, [FromBody] UpdateMerchantOrderStatusCommand command)
+    {
+        command.OrderId = id;
+        return await ExecuteSafeAsync(() => _mediator.Send(command));
     }
 
     /// <summary>
@@ -224,4 +258,3 @@ public class BuyFeaturedRequest
 {
     public FeaturedPlanType PlanType { get; set; } = FeaturedPlanType.Weekly;
 }
-

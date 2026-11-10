@@ -14,6 +14,8 @@ public class RegisterMerchantCommand : IRequest<MerchantProfileDto>
     public string? ContactEmail { get; set; }
     public string ContactPhone { get; set; } = string.Empty;
     public string? BusinessLicense { get; set; }
+    public string? PickupProvince { get; set; }
+    public string? PickupAddress { get; set; }
 }
 
 public class RegisterMerchantCommandValidator : AbstractValidator<RegisterMerchantCommand>
@@ -69,13 +71,11 @@ public class RegisterMerchantCommandHandler : IRequestHandler<RegisterMerchantCo
             throw new KeyNotFoundException("Không tìm thấy thông tin tài khoản người dùng.");
         }
 
-        // BR-01: Mỗi tài khoản chỉ được đăng ký tối đa 1 gian hàng
         if (user.MerchantProfile != null)
         {
             throw new InvalidOperationException("Tài khoản của bạn đã có gian hàng trên hệ thống.");
         }
 
-        // BR-02: Tên shop là duy nhất
         var normalizedShopName = request.ShopName.Trim();
         var isDuplicateShopName = await _context.Merchants
             .AnyAsync(m => m.ShopName.ToLower() == normalizedShopName.ToLower(), cancellationToken);
@@ -94,12 +94,12 @@ public class RegisterMerchantCommandHandler : IRequestHandler<RegisterMerchantCo
             normalizedShopName,
             contactEmail,
             request.ContactPhone.Trim(),
-            request.BusinessLicense?.Trim()
+            request.BusinessLicense?.Trim(),
+            request.PickupProvince?.Trim(),
+            request.PickupAddress?.Trim()
         );
 
         _context.Merchants.Add(merchant);
-
-        // Nâng cấp vai trò người dùng từ Member lên Merchant
         user.ChangeRole(UserRole.Merchant);
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -118,6 +118,8 @@ public class RegisterMerchantCommandHandler : IRequestHandler<RegisterMerchantCo
             ContactEmail = merchant.ContactEmail,
             ContactPhone = merchant.ContactPhone,
             BusinessLicense = merchant.BusinessLicense,
+            PickupProvince = merchant.PickupProvince,
+            PickupAddress = merchant.PickupAddress,
             IsVerified = merchant.IsVerified,
             VerifiedAt = merchant.VerifiedAt,
             CreatedAt = merchant.CreatedAt,

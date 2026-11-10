@@ -40,6 +40,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<GiftPollItem> GiftPollItems => Set<GiftPollItem>();
     public DbSet<GiftPollVote> GiftPollVotes => Set<GiftPollVote>();
 
+    // 7. Direct Merchant Orders (COD)
+    public DbSet<MerchantOrder> MerchantOrders => Set<MerchantOrder>();
+    public DbSet<MerchantOrderItem> MerchantOrderItems => Set<MerchantOrderItem>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

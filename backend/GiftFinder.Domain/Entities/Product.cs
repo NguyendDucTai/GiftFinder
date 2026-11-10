@@ -20,6 +20,7 @@ public class Product : BaseAuditableEntity
 
     public Guid? MerchantId { get; private set; }
     public Merchant? Merchant { get; private set; }
+    public int StockQuantity { get; private set; } = 50;
 
     public bool IsFeatured { get; private set; }
     public DateTime? FeaturedUntil { get; private set; }
@@ -49,25 +50,46 @@ public class Product : BaseAuditableEntity
         string? externalProductId = null,
         string? imageUrl = null,
         long? originalPrice = null,
-        Guid? merchantId = null)
+        Guid? merchantId = null,
+        int stockQuantity = 50)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Tên sản phẩm không được để trống.");
         if (price <= 0)
             throw new ArgumentException("Giá sản phẩm phải là số nguyên dương.");
-        if (string.IsNullOrWhiteSpace(originalUrl))
+        if (source != ProductSource.DirectMerchant && string.IsNullOrWhiteSpace(originalUrl))
             throw new ArgumentException("Đường dẫn gốc sản phẩm không được để trống.");
 
         Name = name.Trim();
         Price = price;
         OriginalPrice = originalPrice;
-        OriginalUrl = originalUrl.Trim();
+        OriginalUrl = string.IsNullOrWhiteSpace(originalUrl)
+            ? $"https://giftfinder.vn/product/{Id}"
+            : originalUrl.Trim();
         Source = source;
         ExternalProductId = externalProductId?.Trim();
         ImageUrl = imageUrl;
         MerchantId = merchantId;
+        StockQuantity = Math.Max(0, stockQuantity);
         Status = ProductStatus.Pending;
         IsFeatured = false;
+    }
+
+    public void SetStockQuantity(int stockQuantity)
+    {
+        StockQuantity = Math.Max(0, stockQuantity);
+    }
+
+    public void DeductStock(int quantity)
+    {
+        if (quantity <= 0) return;
+        StockQuantity = Math.Max(0, StockQuantity - quantity);
+    }
+
+    public void RestoreStock(int quantity)
+    {
+        if (quantity <= 0) return;
+        StockQuantity += quantity;
     }
 
     public void SetAffiliateUrl(string affiliateUrl)
@@ -120,26 +142,31 @@ public class Product : BaseAuditableEntity
     }
 
     public void UpdateMerchantDetails(
-        string name, 
-        long price, 
-        string originalUrl, 
-        string? description = null, 
-        string? imageUrl = null, 
-        long? originalPrice = null)
+        string name,
+        long price,
+        string? originalUrl,
+        string? description = null,
+        string? imageUrl = null,
+        long? originalPrice = null,
+        int? stockQuantity = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Tên sản phẩm không được để trống.");
         if (price <= 0)
             throw new ArgumentException("Giá sản phẩm phải là số nguyên dương.");
-        if (string.IsNullOrWhiteSpace(originalUrl))
-            throw new ArgumentException("Đường dẫn sản phẩm không được để trống.");
 
         Name = name.Trim();
         Price = price;
-        OriginalUrl = originalUrl.Trim();
+        OriginalUrl = string.IsNullOrWhiteSpace(originalUrl)
+            ? $"https://giftfinder.vn/product/{Id}"
+            : originalUrl.Trim();
         Description = description?.Trim();
         ImageUrl = imageUrl?.Trim();
         OriginalPrice = originalPrice;
+        if (stockQuantity.HasValue)
+        {
+            StockQuantity = Math.Max(0, stockQuantity.Value);
+        }
 
         // Nếu sản phẩm đã duyệt trước đó, sau khi sửa thông tin sẽ tự động đưa về Pending để Admin duyệt lại (BR-03)
         if (Status == ProductStatus.Approved || Status == ProductStatus.Rejected || Status == ProductStatus.Inactive)
@@ -160,7 +187,7 @@ public class Product : BaseAuditableEntity
             throw new InvalidOperationException(
                 "Sản phẩm chưa được duyệt, vui lòng chờ Admin xét duyệt trước khi mua gói hiển thị nổi bật.");
 
-        // AC-4 (UC-17): Cho phĂ©p gia háº¡n ná»‘i tiáº¿p náº¿u gĂ³i hiá»‡n táº¡i cĂ²n háº¡n
+        // AC-4 (UC-17): Cho phép gia hạn nối tiếp nếu gói hiện tại còn hạn
         var baseTime = (IsFeatured && FeaturedUntil.HasValue && FeaturedUntil.Value > from)
             ? FeaturedUntil.Value
             : from;

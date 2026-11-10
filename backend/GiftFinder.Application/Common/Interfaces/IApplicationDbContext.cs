@@ -23,6 +23,8 @@ public interface IApplicationDbContext
     DbSet<GiftPollItem> GiftPollItems { get; }
     DbSet<GiftPollVote> GiftPollVotes { get; }
     DbSet<PriceTracking> PriceTrackings { get; }
+    DbSet<MerchantOrder> MerchantOrders { get; }
+    DbSet<MerchantOrderItem> MerchantOrderItems { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

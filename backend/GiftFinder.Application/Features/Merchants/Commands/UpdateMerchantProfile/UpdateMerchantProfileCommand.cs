@@ -12,6 +12,8 @@ public class UpdateMerchantProfileCommand : IRequest<MerchantProfileDto>
     public string ContactEmail { get; set; } = string.Empty;
     public string ContactPhone { get; set; } = string.Empty;
     public string? BusinessLicense { get; set; }
+    public string? PickupProvince { get; set; }
+    public string? PickupAddress { get; set; }
 }
 
 public class UpdateMerchantProfileCommandValidator : AbstractValidator<UpdateMerchantProfileCommand>
@@ -75,7 +77,9 @@ public class UpdateMerchantProfileCommandHandler : IRequestHandler<UpdateMerchan
             normalizedShopName,
             request.ContactEmail.Trim(),
             request.ContactPhone.Trim(),
-            request.BusinessLicense?.Trim()
+            request.BusinessLicense?.Trim(),
+            request.PickupProvince?.Trim(),
+            request.PickupAddress
         );
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -88,6 +92,8 @@ public class UpdateMerchantProfileCommandHandler : IRequestHandler<UpdateMerchan
             ContactEmail = merchant.ContactEmail,
             ContactPhone = merchant.ContactPhone,
             BusinessLicense = merchant.BusinessLicense,
+            PickupProvince = merchant.PickupProvince,
+            PickupAddress = merchant.PickupAddress,
             IsVerified = merchant.IsVerified,
             VerifiedAt = merchant.VerifiedAt,
             CreatedAt = merchant.CreatedAt

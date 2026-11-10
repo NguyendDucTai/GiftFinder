@@ -73,6 +73,15 @@ public class GetMyProductsQueryHandler : IRequestHandler<GetMyProductsQuery, Pag
                 .ToDictionaryAsync(x => x.ProductId, x => x.Count, cancellationToken)
             : new Dictionary<Guid, int>();
 
+        var soldCounts = productIds.Count > 0
+            ? await _context.MerchantOrderItems
+                .AsNoTracking()
+                .Where(i => productIds.Contains(i.ProductId) && i.MerchantOrder.Status != MerchantOrderStatus.Cancelled)
+                .GroupBy(i => i.ProductId)
+                .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                .ToDictionaryAsync(x => x.ProductId, x => x.Qty, cancellationToken)
+            : new Dictionary<Guid, int>();
+
         var now = DateTime.UtcNow;
         var items = products.Select(p => new MerchantProductListItemDto
         {
@@ -85,9 +94,11 @@ public class GetMyProductsQueryHandler : IRequestHandler<GetMyProductsQuery, Pag
             OriginalUrl = p.OriginalUrl,
             Status = p.Status.ToString(),
             RejectReason = p.RejectReason,
+            StockQuantity = p.StockQuantity,
             IsFeatured = p.IsFeatured && (!p.FeaturedUntil.HasValue || p.FeaturedUntil.Value > now),
             FeaturedUntil = p.FeaturedUntil,
             ClickCount = clickCounts.TryGetValue(p.Id, out var cCount) ? cCount : 0,
+            SoldCount = soldCounts.TryGetValue(p.Id, out var sCount) ? sCount : 0,
             CreatedAt = p.CreatedAt,
             TagIds = p.ProductTags.Select(pt => pt.TagId).ToList(),
             TagNames = p.ProductTags.Select(pt => pt.Tag.Name).ToList(),
