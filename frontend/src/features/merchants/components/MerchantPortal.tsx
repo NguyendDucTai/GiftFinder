@@ -5,12 +5,39 @@ import {
   type MerchantDashboardStats,
   type MerchantProductItem,
   type MerchantProfile,
+  type MerchantOrder,
   type TagDtoItem,
   type BuyFeaturedResponse,
 } from '../services/merchantService';
 import { getHighResImageUrl } from '../../../App';
 
-type PortalTab = 'overview' | 'products' | 'editor' | 'featured' | 'profile';
+type PortalTab = 'overview' | 'orders' | 'products' | 'editor' | 'featured' | 'profile';
+
+const PROVINCE_OPTIONS = [
+  'Hà Nội',
+  'TP. Hồ Chí Minh',
+  'Đà Nẵng',
+  'Hải Phòng',
+  'Cần Thơ',
+  'Bình Dương',
+  'Đồng Nai',
+  'Khánh Hòa',
+  'Thừa Thiên Huế',
+  'Quảng Ninh',
+  'Bắc Ninh',
+  'Nghệ An',
+  'Thanh Hóa',
+  'Lâm Đồng',
+];
+
+const CARRIER_OPTIONS = [
+  'Giao Hàng Nhanh (GHN)',
+  'Giao Hàng Tiết Kiệm (GHTK)',
+  'Viettel Post',
+  'Ahamove Hỏa Tốc 2H',
+  'GrabExpress Nội Thành',
+  'J&T Express',
+];
 
 const ZODIAC_OPTIONS = [
   { id: 'Aries', label: 'Bạch Dương', symbol: '♈', dates: '21/3 - 19/4' },
@@ -73,18 +100,30 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   const [obPhone, setObPhone] = useState('');
   const [obEmail, setObEmail] = useState('');
   const [obPassword, setObPassword] = useState('');
-  const [obLicense, setObLicense] = useState('');
+  const [obLicense] = useState('');
+  const [obProvince, setObProvince] = useState('Hà Nội');
+  const [obAddress, setObAddress] = useState('');
   const [obLoading, setObLoading] = useState(false);
   const [obError, setObError] = useState<string | null>(null);
 
   // State cho Kênh Quản Lý Gian Hàng (Merchant Seller Center)
   const [activeTab, setActiveTab] = useState<PortalTab>('overview');
+  const [chartDays, setChartDays] = useState<7 | 30>(7);
   const [stats, setStats] = useState<MerchantDashboardStats | null>(null);
   const [profile, setProfile] = useState<MerchantProfile | null>(null);
   const [products, setProducts] = useState<MerchantProductItem[]>([]);
+  const [orders, setOrders] = useState<MerchantOrder[]>([]);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
   const [allTags, setAllTags] = useState<TagDtoItem[]>([]);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [needsShopSetup, setNeedsShopSetup] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+
+  // State Modal nhập Mã vận đơn khi giao cho Shipper
+  const [shippingModalOrder, setShippingModalOrder] = useState<MerchantOrder | null>(null);
+  const [selectedCarrier, setSelectedCarrier] = useState(CARRIER_OPTIONS[0]);
+  const [trackingCodeInput, setTrackingCodeInput] = useState('');
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   // State đóng/mở thanh quản lý bên trái (Left Sidebar)
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -119,7 +158,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   const [prodName, setProdName] = useState('');
   const [prodPrice, setProdPrice] = useState('');
   const [prodOrigPrice, setProdOrigPrice] = useState('');
-  const [prodOriginalUrl, setProdOriginalUrl] = useState('');
+  const [prodStockQty, setProdStockQty] = useState('50');
   const [prodImageUrl, setProdImageUrl] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -131,7 +170,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   const [savingProduct, setSavingProduct] = useState(false);
 
   // State cho Quảng cáo Đẩy Top Featured (Tab 'featured' & Modal VNPAY)
-  const [selectedPlanType, setSelectedPlanType] = useState<0 | 1>(0); // 0 = Weekly (49k), 1 = Monthly (199k)
+  const [selectedPlanType, setSelectedPlanType] = useState<0 | 1>(0);
   const [featuredPendingTx, setFeaturedPendingTx] = useState<BuyFeaturedResponse | null>(null);
   const [featuredLoadingId, setFeaturedLoadingId] = useState<string | null>(null);
   const [simulatingPay, setSimulatingPay] = useState(false);
@@ -141,9 +180,10 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   const [profEmail, setProfEmail] = useState('');
   const [profPhone, setProfPhone] = useState('');
   const [profLicense, setProfLicense] = useState('');
+  const [profProvince, setProfProvince] = useState('Hà Nội');
+  const [profAddress, setProfAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // Đồng bộ email mặc định khi user đã đăng nhập nhưng chưa mở shop
   useEffect(() => {
     if (user?.email && !obEmail) {
       setObEmail(user.email);
@@ -154,20 +194,21 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   }, [user]);
 
   // Hàm tải toàn bộ dữ liệu gian hàng từ Backend
-  const loadMerchantPortalData = async () => {
+  const loadMerchantPortalData = async (daysParam: 7 | 30 = chartDays) => {
     if (!isAuthenticated) return;
     setLoadingPortal(true);
     setNeedsShopSetup(false);
     try {
-      const [profileRes, statsRes, productsRes, tagsRes] = await Promise.all([
+      const [profileRes, statsRes, productsRes, ordersRes, tagsRes] = await Promise.all([
         merchantService.getProfile().catch((err) => {
           if (err?.response?.status === 404 || err?.response?.status === 403) {
             setNeedsShopSetup(true);
           }
           return null;
         }),
-        merchantService.getDashboardStats().catch(() => null),
+        merchantService.getDashboardStats(daysParam).catch(() => null),
         merchantService.getMyProducts(1, 100).catch(() => ({ items: [], totalCount: 0, pageNumber: 1, pageSize: 100 })),
+        merchantService.getOrders().catch(() => []),
         merchantService.getTags().catch(() => []),
       ]);
 
@@ -177,12 +218,17 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         setProfEmail(profileRes.contactEmail || '');
         setProfPhone(profileRes.contactPhone || '');
         setProfLicense(profileRes.businessLicense || '');
+        setProfProvince(profileRes.pickupProvince || 'Hà Nội');
+        setProfAddress(profileRes.pickupAddress || '');
       }
       if (statsRes) {
         setStats(statsRes);
       }
       if (productsRes?.items) {
         setProducts(productsRes.items);
+      }
+      if (Array.isArray(ordersRes)) {
+        setOrders(ordersRes);
       }
       if (Array.isArray(tagsRes)) {
         setAllTags(tagsRes);
@@ -194,9 +240,79 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
 
   useEffect(() => {
     if (isAuthenticated && isMerchant) {
-      loadMerchantPortalData();
+      loadMerchantPortalData(chartDays);
     }
   }, [isAuthenticated, isMerchant]);
+
+  const handleChangeChartDays = async (days: 7 | 30) => {
+    setChartDays(days);
+    try {
+      const statsRes = await merchantService.getDashboardStats(days);
+      if (statsRes) setStats(statsRes);
+    } catch {
+      // ignore
+    }
+  };
+
+  // ============================================================================
+  // XỬ LÝ ĐƠN HÀNG (TAB 'ORDERS')
+  // ============================================================================
+  const handleQuickUpdateOrderStatus = async (
+    order: MerchantOrder,
+    targetStatus: 'Packing' | 'Shipping' | 'Completed' | 'Cancelled',
+    carrier?: string,
+    tracking?: string
+  ) => {
+    if (targetStatus === 'Cancelled') {
+      const confirmed = window.confirm(
+        `Bạn có chắc chắn muốn hủy đơn hàng ${order.orderCode} của khách ${order.receiverName}?`
+      );
+      if (!confirmed) return;
+    }
+
+    setUpdatingOrderId(order.id);
+    try {
+      await merchantService.updateOrderStatus(order.id, {
+        targetStatus,
+        shippingCarrier: carrier,
+        trackingCode: tracking,
+      });
+
+      const statusMsg =
+        targetStatus === 'Packing'
+          ? `📦 Đã xác nhận đơn ${order.orderCode} & chuyển sang Đang gói quà!`
+          : targetStatus === 'Shipping'
+            ? `🚚 Đã bàn giao đơn ${order.orderCode} cho ${carrier || 'ĐVVC'}!`
+            : targetStatus === 'Completed'
+              ? `🎉 Đơn hàng ${order.orderCode} đã giao thành công! Đã cộng +${order.totalAmount.toLocaleString('vi-VN')}đ vào doanh thu Shop!`
+              : `Đã hủy đơn hàng ${order.orderCode}.`;
+
+      onNotify(statusMsg);
+      setShippingModalOrder(null);
+      await loadMerchantPortalData(chartDays);
+    } catch (err: any) {
+      onNotify(
+        `⚠️ ${
+          err?.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng.'
+        }`
+      );
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const openShippingModal = (order: MerchantOrder) => {
+    setShippingModalOrder(order);
+    setSelectedCarrier(
+      order.shippingMethod === 'Express2H' ? 'Ahamove Hỏa Tốc 2H' : CARRIER_OPTIONS[0]
+    );
+    setTrackingCodeInput(
+      order.trackingCode ||
+        `${order.shippingMethod === 'Express2H' ? 'AHA' : 'GHN'}-${Math.floor(
+          100000 + Math.random() * 900000
+        )}`
+    );
+  };
 
   // ============================================================================
   // XỬ LÝ ĐĂNG KÝ / ĐĂNG NHẬP / NÂNG CẤP TÀI KHOẢN ĐỐI TÁC (ONBOARDING)
@@ -206,7 +322,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     setObLoading(true);
     try {
       await login({ email: 'shopdemo@giftfinder.vn', password: 'Password@123' }, true);
-      onNotify('🎉 Đã đăng nhập vào Gian hàng mẫu: Tiệm Quà & Nến Thơm Mộc!');
+      onNotify('🎉 Đã đăng nhập vào Gian hàng mẫu: Tiệm Gốm Mộc!');
     } catch (err: any) {
       setObError(
         err?.response?.data?.message ||
@@ -248,7 +364,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
       return;
     }
 
-    // Đăng ký mới tài khoản Merchant 1 bước (POST /api/Auth/register-merchant)
     if (!obShopName.trim()) {
       setObError('Vui lòng nhập Tên gian hàng / Thương hiệu quà tặng.');
       return;
@@ -315,13 +430,15 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         contactPhone: obPhone.trim(),
         contactEmail: obEmail.trim() || user?.email,
         businessLicense: obLicense.trim() || undefined,
+        pickupProvince: obProvince,
+        pickupAddress: obAddress.trim() || undefined,
       });
       if (res?.token) {
         upgradeToMerchant(res.token, res.shopName || obShopName.trim());
       }
       setNeedsShopSetup(false);
       onNotify(`🎉 Đã nâng cấp tài khoản lên Đối tác và mở gian hàng "${res.shopName}" thành công!`);
-      await loadMerchantPortalData();
+      await loadMerchantPortalData(chartDays);
     } catch (err: any) {
       setObError(
         err?.response?.data?.message ||
@@ -342,7 +459,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     setProdName('');
     setProdPrice('');
     setProdOrigPrice('');
-    setProdOriginalUrl('');
+    setProdStockQty('50');
     setProdImageUrl('');
     setProdDesc('');
     setSelectedTagIds([]);
@@ -363,7 +480,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     setProdName(item.name || '');
     setProdPrice(String(item.price || ''));
     setProdOrigPrice(item.originalPrice ? String(item.originalPrice) : '');
-    setProdOriginalUrl(item.originalUrl || '');
+    setProdStockQty(String(item.stockQuantity ?? 50));
     setProdImageUrl(item.imageUrl || '');
     setProdDesc(item.description || '');
     setSelectedTagIds(item.tagIds || []);
@@ -373,21 +490,20 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     setActiveTab('editor');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Gọi thêm API chi tiết sản phẩm để đảm bảo đầy đủ Description, TagIds và SuitableZodiacs
     try {
       const detail = await merchantService.getProductById(item.id);
       if (detail) {
         setProdName(detail.name || item.name);
         setProdPrice(String(detail.price || item.price));
         setProdOrigPrice(detail.originalPrice ? String(detail.originalPrice) : '');
-        setProdOriginalUrl(detail.originalUrl || item.originalUrl || '');
+        setProdStockQty(String(detail.stockQuantity ?? item.stockQuantity ?? 50));
         setProdImageUrl(detail.imageUrl || item.imageUrl || '');
         setProdDesc(detail.description || '');
         if (detail.tagIds) setSelectedTagIds(detail.tagIds);
         if (detail.suitableZodiacs) setSelectedZodiacs(detail.suitableZodiacs);
       }
     } catch {
-      // Dùng dữ liệu sẵn có từ list nếu lỗi mạng nhẹ
+      // ignore
     }
   };
 
@@ -408,7 +524,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         price: numericPrice,
       });
 
-      // Cập nhật danh sách Tags nếu AI vừa tạo thêm Tag mới trong DB
       const updatedTags = await merchantService.getTags().catch(() => allTags);
       if (updatedTags.length > 0) {
         setAllTags(updatedTags);
@@ -466,6 +581,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     const origPriceNum = prodOrigPrice
       ? parseInt(prodOrigPrice.replace(/\D/g, ''), 10)
       : undefined;
+    const stockNum = parseInt(prodStockQty.replace(/\D/g, ''), 10);
 
     if (!prodName.trim()) {
       onNotify('⚠️ Vui lòng nhập tên món quà tặng.');
@@ -477,10 +593,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     }
     if (origPriceNum !== undefined && origPriceNum < priceNum) {
       onNotify('⚠️ Giá gốc trước giảm phải lớn hơn hoặc bằng giá bán hiện tại.');
-      return;
-    }
-    if (!prodOriginalUrl.trim() || !/^https?:\/\//i.test(prodOriginalUrl.trim())) {
-      onNotify('⚠️ Đường dẫn đặt mua của Shop phải bắt đầu bằng http:// hoặc https://');
       return;
     }
     if (prodImageUrl.trim() && !/^https?:\/\//i.test(prodImageUrl.trim())) {
@@ -495,7 +607,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         description: prodDesc.trim() || undefined,
         price: priceNum,
         originalPrice: origPriceNum,
-        originalUrl: prodOriginalUrl.trim(),
+        stockQuantity: isNaN(stockNum) ? 50 : Math.max(0, stockNum),
         imageUrl: prodImageUrl.trim() || SAMPLE_GIFT_IMAGES[0].url,
         tagIds: selectedTagIds,
         customTagNames: customTags,
@@ -507,11 +619,11 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         onNotify('✓ Đã cập nhật thông tin món quà! Sản phẩm đã được gửi chờ Admin duyệt lại.');
       } else {
         await merchantService.createProduct(payload);
-        onNotify('🎉 Đăng món quà mới thành công! Sản phẩm đang chờ Admin kiểm duyệt.');
+        onNotify('🎉 Đăng món quà mới thành công! Khách hàng sẽ đặt mua trực tiếp trên GiftFinder sau khi Admin duyệt.');
       }
 
       resetEditorForm();
-      await loadMerchantPortalData();
+      await loadMerchantPortalData(chartDays);
       setActiveTab('products');
     } catch (err: any) {
       onNotify(
@@ -531,7 +643,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
       const res = await merchantService.deleteProduct(productId);
       onNotify(`✓ ${res?.message || 'Đã ẩn sản phẩm khỏi gian hàng thành công.'}`);
       setConfirmDeleteId(null);
-      await loadMerchantPortalData();
+      await loadMerchantPortalData(chartDays);
     } catch (err: any) {
       onNotify(
         `⚠️ ${
@@ -579,7 +691,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         `🎉 Thanh toán thành công! Sản phẩm "${featuredPendingTx.productName}" đã được kích hoạt Đẩy Top Featured!`
       );
       setFeaturedPendingTx(null);
-      await loadMerchantPortalData();
+      await loadMerchantPortalData(chartDays);
     } catch (err: any) {
       onNotify(
         `⚠️ ${
@@ -596,7 +708,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     try {
       const res = await merchantService.cancelFeatured(productId);
       onNotify(`✓ ${res?.message || `Đã hủy gói nổi bật cho "${productName}".`}`);
-      await loadMerchantPortalData();
+      await loadMerchantPortalData(chartDays);
     } catch (err: any) {
       onNotify(
         `⚠️ ${
@@ -633,10 +745,12 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
         contactEmail: profEmail.trim(),
         contactPhone: profPhone.trim(),
         businessLicense: profLicense.trim() || undefined,
+        pickupProvince: profProvince,
+        pickupAddress: profAddress.trim(),
       });
       setProfile(updated);
-      await loadMerchantPortalData();
-      onNotify('✓ Đã lưu thông tin Hồ sơ Gian hàng thành công!');
+      await loadMerchantPortalData(chartDays);
+      onNotify(`✓ Đã lưu Hồ sơ Gian hàng & Địa chỉ kho (${profProvince}) thành công!`);
     } catch (err: any) {
       onNotify(
         `⚠️ ${
@@ -670,7 +784,13 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
       });
   }, [products, statusFilter, searchKeyword, productSort]);
 
-  // Phân nhóm Tags theo loại để hiển thị dễ chọn
+  // Lọc danh sách đơn hàng
+  const filteredOrders = useMemo(() => {
+    if (orderStatusFilter === 'ALL') return orders;
+    return orders.filter((o) => o.status === orderStatusFilter);
+  }, [orders, orderStatusFilter]);
+
+  // Phân nhóm Tags theo loại
   const groupedTags = useMemo(() => {
     const recipients = allTags.filter(
       (t) => t.typeName === 'Recipient' || t.type === 0 || t.type === 'Recipient'
@@ -697,33 +817,32 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     return (
       <div className="mp-onboarding-page">
         <div className="mp-onboarding-container">
-          {/* CỘT TRÁI: GIỚI THIỆU QUYỀN LỢI HỢP TÁC BÁN HÀNG CÙNG GIFTFINDER */}
           <section className="mp-onboarding-pitch">
-            <div className="mp-pitch-badge">✨ HỆ SINH THÁI ĐỐI TÁC QUÀ TẶNG AI</div>
+            <div className="mp-pitch-badge">✨ HỆ SINH THÁI GIAN HÀNG QUÀ TẶNG TRỰC TIẾP</div>
             <h1 className="mp-pitch-title">
-              Đưa món quà tâm huyết của bạn đến <em>đúng người</em> đang tìm kiếm
+              Mở Gian Hàng Quà Tặng & Nhận <em>Đơn Đặt Hàng Trực Tiếp</em> Ngay Trên GiftFinder
             </h1>
             <p className="mp-pitch-subtitle">
-              Khác với sàn thương mại điện tử đại trà, <strong>GiftFinder</strong> sử dụng trí tuệ nhân tạo để kết nối trực tiếp sản phẩm của Shop với những khách hàng đang thực sự cần mua quà theo đúng dịp lễ, người nhận và ngân sách.
+              Khác với sàn thương mại điện tử thu phí 15%, <strong>GiftFinder</strong> giúp các xưởng quà thủ công, tiệm nến thơm, gốm sứ, hoa tươi nhận đơn đặt hàng COD trực tiếp (kèm lời chúc thiệp & gói quà) mà không cần dẫn khách đi nơi khác.
             </p>
 
             <div className="mp-benefit-grid">
               <div className="mp-benefit-card">
-                <div className="mp-benefit-icon">🤖</div>
+                <div className="mp-benefit-icon">🛒</div>
                 <div>
-                  <h3>AI Gift Concierge Đề Xuất Tự Động</h3>
+                  <h3>Khách Đặt Mua Trực Tiếp Trên Web</h3>
                   <p>
-                    Sản phẩm của bạn được AI tư vấn trực tiếp trong khung chat và kết quả tìm kiếm cá nhân hóa 24/7.
+                    Người mua chọn số lượng, điền địa chỉ nhận quà, viết thiệp chúc mừng và đặt đơn COD nổ thẳng về Kênh Người Bán.
                   </p>
                 </div>
               </div>
 
               <div className="mp-benefit-card">
-                <div className="mp-benefit-icon">🏷️</div>
+                <div className="mp-benefit-icon">⚡</div>
                 <div>
-                  <h3>Tự Động Gắn Tag & 12 Cung Hoàng Đạo</h3>
+                  <h3>Tự Động Tính Ship Nội Tỉnh & Hỏa Tốc 2H</h3>
                   <p>
-                    Trợ lý AI 120B tự động đọc tên & mô tả quà để gán thẻ Dịp tặng, Sở thích và Cung hoàng đạo chuẩn xác.
+                    Hệ thống tự động đối chiếu Tỉnh kho của Shop và Tỉnh khách nhận để bật Giao Hỏa Tốc 2H (50k) hoặc Liên Tỉnh (35k).
                   </p>
                 </div>
               </div>
@@ -731,19 +850,19 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
               <div className="mp-benefit-card">
                 <div className="mp-benefit-icon">🚀</div>
                 <div>
-                  <h3>Đẩy Top Featured Linh Hoạt</h3>
+                  <h3>Đẩy Top Featured Ra Đơn Thật</h3>
                   <p>
-                    Chiếm vị trí ưu tiên đầu trang Catalog và gợi ý AI chỉ từ 49.000đ/tuần qua cổng VNPAY chính thức.
+                    Chiếm vị trí ưu tiên đầu trang Catalog và gợi ý AI chỉ từ 49.000đ/tuần để tăng trực tiếp số đơn đặt hàng.
                   </p>
                 </div>
               </div>
 
               <div className="mp-benefit-card">
-                <div className="mp-benefit-icon">📊</div>
+                <div className="mp-benefit-icon">📈</div>
                 <div>
-                  <h3>Đo Lường Click & Chuyển Đổi Thực</h3>
+                  <h3>Biểu Đồ Tăng Trưởng Doanh Thu Thực</h3>
                   <p>
-                    Dẫn khách mua trực tiếp về Shopee Mall, TikTok Shop, Zalo hoặc Website riêng của bạn với thống kê minh bạch.
+                    Theo dõi biểu đồ tăng trưởng lượt Click, Đơn hàng, tỷ lệ chuyển đổi CVR và doanh thu COD theo từng ngày.
                   </p>
                 </div>
               </div>
@@ -751,8 +870,8 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
 
             <div className="mp-pitch-metrics">
               <div>
-                <strong>50.000+</strong>
-                <span>Lượt tìm quà / tháng</span>
+                <strong>0%</strong>
+                <span>Phí chiết khấu đơn hàng COD</span>
               </div>
               <div className="mp-pitch-divider" />
               <div>
@@ -762,12 +881,11 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
               <div className="mp-pitch-divider" />
               <div>
                 <strong>100%</strong>
-                <span>Hỗ trợ phân loại bằng AI</span>
+                <span>Đơn hàng thật kèm lời chúc thiệp</span>
               </div>
             </div>
           </section>
 
-          {/* CỘT PHẢI: FORM ĐĂNG KÝ MỞ SHOP / NÂNG CẤP ROLE MERCHANT / ĐĂNG NHẬP */}
           <section className="mp-onboarding-form-card">
             {!isAuthenticated ? (
               <>
@@ -794,11 +912,10 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   </button>
                 </div>
 
-                {/* Hộp trải nghiệm nhanh 1-Click cho tài khoản Shop Demo */}
                 <div className="mp-demo-quick-box">
                   <div className="mp-demo-quick-info">
                     <span>⚡ <strong>Trải nghiệm ngay Kênh Người Bán?</strong></span>
-                    <small>Dùng tài khoản Đối tác mẫu đã có sẵn sản phẩm & số liệu thực tế</small>
+                    <small>Dùng tài khoản Đối tác mẫu đã có sẵn biểu đồ & đơn hàng thực tế</small>
                   </div>
                   <button
                     type="button"
@@ -863,12 +980,23 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                           />
                         </label>
                         <label className="mp-field">
-                          <span>Mã GPKD / Mã số thuế (Tùy chọn)</span>
-                          <input
-                            value={obLicense}
-                            onChange={(e) => setObLicense(e.target.value)}
-                            placeholder="VD: GPKD-8888"
-                          />
+                          <span>Tỉnh / Thành phố kho hàng *</span>
+                          <select
+                            value={obProvince}
+                            onChange={(e) => setObProvince(e.target.value)}
+                            style={{
+                              padding: '11px 14px',
+                              borderRadius: 10,
+                              border: '1px solid #cbd5e1',
+                              fontSize: 14,
+                            }}
+                          >
+                            {PROVINCE_OPTIONS.map((prov) => (
+                              <option key={prov} value={prov}>
+                                {prov}
+                              </option>
+                            ))}
+                          </select>
                         </label>
                       </div>
 
@@ -924,20 +1052,19 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                 </form>
               </>
             ) : (
-              /* ĐÃ ĐĂNG NHẬP NHƯNG LÀ MEMBER HOẶC CHƯA CÓ HỒ SƠ SHOP -> NÂNG CẤP LÊN MERCHANT */
               <>
                 <div className="mp-form-header">
                   <span className="mp-upgrade-pill">NÂNG CẤP TÀI KHOẢN ĐỐI TÁC</span>
                   <h2>Kích Hoạt Gian Hàng Cho Tài Khoản Của Bạn</h2>
                   <p>
-                    Xin chào <strong>{user?.fullName}</strong> ({user?.email}). Hãy điền thông tin thương hiệu bên dưới để nâng cấp tài khoản lên vai trò <strong>Chủ Gian Hàng (Merchant)</strong> ngay lập tức!
+                    Xin chào <strong>{user?.fullName}</strong> ({user?.email}). Hãy điền thông tin thương hiệu và địa chỉ kho bên dưới để nâng cấp lên <strong>Chủ Gian Hàng (Merchant)</strong>!
                   </p>
                 </div>
 
                 <div className="mp-demo-quick-box" style={{ marginBottom: 18 }}>
                   <div className="mp-demo-quick-info">
                     <span>⚡ <strong>Muốn xem sẵn dữ liệu mẫu?</strong></span>
-                    <small>Chuyển sang tài khoản Shop Mẫu (Tiệm Quà & Nến Thơm Mộc)</small>
+                    <small>Chuyển sang tài khoản Shop Mẫu (Tiệm Gốm Mộc)</small>
                   </div>
                   <button
                     type="button"
@@ -973,23 +1100,32 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       />
                     </label>
                     <label className="mp-field">
-                      <span>Email liên hệ gian hàng *</span>
-                      <input
-                        type="email"
-                        value={obEmail}
-                        onChange={(e) => setObEmail(e.target.value)}
-                        placeholder={user?.email || 'lienhe@shop.vn'}
-                        required
-                      />
+                      <span>Tỉnh / Thành phố kho lấy hàng *</span>
+                      <select
+                        value={obProvince}
+                        onChange={(e) => setObProvince(e.target.value)}
+                        style={{
+                          padding: '11px 14px',
+                          borderRadius: 10,
+                          border: '1px solid #cbd5e1',
+                          fontSize: 14,
+                        }}
+                      >
+                        {PROVINCE_OPTIONS.map((prov) => (
+                          <option key={prov} value={prov}>
+                            {prov}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   </div>
 
                   <label className="mp-field">
-                    <span>Mã Giấy phép kinh doanh / Mã số thuế (Không bắt buộc)</span>
+                    <span>Địa chỉ kho lấy hàng chi tiết</span>
                     <input
-                      value={obLicense}
-                      onChange={(e) => setObLicense(e.target.value)}
-                      placeholder="VD: GPKD-2026-VN"
+                      value={obAddress}
+                      onChange={(e) => setObAddress(e.target.value)}
+                      placeholder="Số nhà, đường, phường/xã, quận/huyện..."
                     />
                   </label>
 
@@ -1020,11 +1156,24 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   }
 
   // ============================================================================
-  // MÀN HÌNH 2: TRUNG TÂM QUẢN LÝ KÊNH NGƯỜI BÁN (CÓ THANH QUẢN LÝ BÊN TRÁI)
+  // MÀN HÌNH 2: TRUNG TÂM QUẢN LÝ KÊNH NGƯỜI BÁN
   // ============================================================================
   const activeShopName =
     profile?.shopName || stats?.shopName || user?.shopName || 'Gian Hàng Đối Tác';
+  const activePickupProvince =
+    profile?.pickupProvince || stats?.pickupProvince || 'Hà Nội';
   const isVerifiedShop = profile?.isVerified ?? stats?.isVerified ?? true;
+
+  const shopSlug =
+    stats?.shopSlug ||
+    activeShopName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') ||
+    'tiem-gom-moc';
+  const shopShareUrl = `${window.location.origin}/?shop=${shopSlug}`;
 
   const approvedCount =
     stats?.approvedProducts ?? products.filter((p) => p.status === 'Approved').length;
@@ -1036,6 +1185,39 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
   const featuredCount =
     stats?.featuredProducts ?? products.filter((p) => p.isFeatured).length;
 
+  const pendingOrdersCount =
+    stats?.pendingOrders ??
+    orders.filter((o) => o.status === 'Pending' || o.status === 'Packing').length;
+  const actualPendingOrdersCount = orders.filter((o) => o.status === 'Pending').length;
+  const packingOrdersCount = orders.filter((o) => o.status === 'Packing').length;
+  const shippingOrdersCount =
+    stats?.shippingOrders ?? orders.filter((o) => o.status === 'Shipping').length;
+  const completedOrdersCount =
+    stats?.completedOrders ?? orders.filter((o) => o.status === 'Completed').length;
+  const totalOrdersCount =
+    stats?.totalOrders ?? orders.filter((o) => o.status !== 'Cancelled').length;
+
+  const completedRevenue =
+    stats?.completedRevenue ??
+    orders
+      .filter((o) => o.status === 'Completed')
+      .reduce((sum, o) => sum + o.totalAmount, 0);
+  const pendingRevenue =
+    stats?.pendingRevenue ??
+    orders
+      .filter((o) => o.status === 'Pending' || o.status === 'Packing' || o.status === 'Shipping')
+      .reduce((sum, o) => sum + o.totalAmount, 0);
+  const avgOrderValue =
+    stats?.averageOrderValue ??
+    (totalOrdersCount > 0 ? Math.round((completedRevenue + pendingRevenue) / totalOrdersCount) : 0);
+
+  // Dữ liệu biểu đồ tăng trưởng theo ngày
+  const chartPoints = stats?.dailyChart || [];
+  const maxChartVal = Math.max(
+    4,
+    ...chartPoints.map((d) => Math.max(d.clicks, d.orders))
+  );
+
   // Giá xem trước cho Live Preview trong Editor
   const previewPriceNum = parseInt(prodPrice.replace(/\D/g, ''), 10) || 350000;
   const previewOrigNum =
@@ -1045,20 +1227,175 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
       ? Math.max(5, Math.round((1 - previewPriceNum / previewOrigNum) * 100))
       : 15;
 
+  const renderOrderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Pending':
+        return (
+          <span
+            style={{
+              background: '#fef3c7',
+              color: '#b45309',
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            ⏳ Chờ xác nhận
+          </span>
+        );
+      case 'Packing':
+        return (
+          <span
+            style={{
+              background: '#e0e7ff',
+              color: '#4338ca',
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            🎁 Đang gói quà & viết thiệp
+          </span>
+        );
+      case 'Shipping':
+        return (
+          <span
+            style={{
+              background: '#dbeafe',
+              color: '#1d4ed8',
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            🚚 Shipper đang giao
+          </span>
+        );
+      case 'Completed':
+        return (
+          <span
+            style={{
+              background: '#dcfce7',
+              color: '#15803d',
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            ✓ Đã giao & thu COD
+          </span>
+        );
+      default:
+        return (
+          <span
+            style={{
+              background: '#fee2e2',
+              color: '#b91c1c',
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            ✕ Đã hủy
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="mp-portal-wrapper">
+      {/* ====================================================================
+          THANH ĐIỀU HƯỚNG CHUYÊN BIỆT CHO MERCHANT (SELLER CENTER TOP NAVBAR)
+          ==================================================================== */}
+      <header className="mp-seller-navbar">
+        <div className="mp-seller-brand">
+          <button
+            type="button"
+            className={`mp-hamburger-btn ${!sidebarOpen ? 'is-collapsed' : ''}`}
+            onClick={toggleSidebar}
+            title={sidebarOpen ? 'Thu gọn thanh bên (☰)' : 'Mở rộng thanh bên (☰)'}
+            aria-label="Đóng mở thanh quản trị bên trái"
+            style={{ width: 38, height: 38 }}
+          >
+            <span className="mp-hamburger-bar" />
+            <span className="mp-hamburger-bar" />
+            <span className="mp-hamburger-bar" />
+          </button>
+          <div
+            className="mp-brand-logo-badge"
+            onClick={() => setActiveTab('overview')}
+            style={{ cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 22 }}>🎁</span>
+            <span className="mp-brand-logo-text">EGift</span>
+            <span className="mp-seller-tag">Kênh Người Bán</span>
+          </div>
+        </div>
+
+        <div className="mp-seller-current-shop-pill">
+          <span>🏪</span>
+          <span className="shop-name">{activeShopName}</span>
+          <span style={{ color: 'var(--eg-border)' }}>|</span>
+          <span style={{ color: 'var(--eg-text-secondary)', fontSize: 12 }}>
+            📍 Kho {activePickupProvince}
+          </span>
+          {isVerifiedShop && (
+            <span style={{ color: '#059669', fontSize: 11, fontWeight: 700 }}>
+              ✓ Đã xác minh
+            </span>
+          )}
+        </div>
+
+        <div className="mp-seller-navbar-actions">
+          <button
+            type="button"
+            className="mp-btn-outline"
+            style={{ padding: '7px 12px', fontSize: 12.5 }}
+            onClick={() => go('home')}
+            title="Quay lại trang mua sắm quà tặng"
+          >
+            🌐 Xem Website người mua
+          </button>
+          <button
+            type="button"
+            className="mp-btn-primary"
+            style={{ padding: '7px 14px', fontSize: 12.5 }}
+            onClick={handleStartCreateNew}
+          >
+            + Đăng quà mới
+          </button>
+          <button
+            type="button"
+            className="mp-btn-outline danger"
+            style={{ padding: '7px 12px', fontSize: 12.5 }}
+            onClick={() => {
+              logout();
+              go('home');
+              onNotify('Đã đăng xuất khỏi Kênh Người Bán.');
+            }}
+            title="Đăng xuất tài khoản gian hàng"
+          >
+            🚪 Đăng xuất
+          </button>
+        </div>
+      </header>
+
       <div className={`mp-portal-shell ${sidebarOpen ? '' : 'sidebar-closed'}`}>
         {/* ====================================================================
             THANH QUẢN LÝ BÊN TRÁI (LEFT SIDEBAR NAVIGATION)
             ==================================================================== */}
         <aside className={`mp-sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
-          {/* Thẻ Định Danh Shop */}
           <div className="mp-shop-identity">
             <div className="mp-shop-avatar">
               {activeShopName.charAt(0).toUpperCase()}
             </div>
             <div className="mp-shop-meta">
-              <span className="mp-shop-role-tag">KÊNH ĐỐI TÁC</span>
+              <span className="mp-shop-role-tag">KÊNH ĐỐI TÁC · {activePickupProvince.toUpperCase()}</span>
               <h2 className="mp-shop-title" title={activeShopName}>
                 {activeShopName}
               </h2>
@@ -1080,7 +1417,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
             </button>
           </div>
 
-          {/* Danh sách Menu Điều Hướng */}
           <nav className="mp-sidebar-nav" aria-label="Menu quản lý gian hàng">
             <div className="mp-nav-group-label">QUẢN TRỊ GIAN HÀNG</div>
 
@@ -1091,6 +1427,25 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
             >
               <span className="mp-nav-icon">📊</span>
               <span className="mp-nav-text">Tổng quan hiệu suất</span>
+            </button>
+
+            <button
+              type="button"
+              className={`mp-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => setActiveTab('orders')}
+            >
+              <span className="mp-nav-icon">📦</span>
+              <span className="mp-nav-text">Quản lý đơn hàng</span>
+              {pendingOrdersCount > 0 ? (
+                <span
+                  className="mp-nav-count"
+                  style={{ background: '#e11d48', color: '#fff' }}
+                >
+                  {pendingOrdersCount} mới
+                </span>
+              ) : (
+                <span className="mp-nav-count">{orders.length}</span>
+              )}
             </button>
 
             <button
@@ -1133,19 +1488,24 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
               onClick={() => setActiveTab('profile')}
             >
               <span className="mp-nav-icon">⚙️</span>
-              <span className="mp-nav-text">Hồ sơ gian hàng</span>
+              <span className="mp-nav-text">Hồ sơ & Kho hàng</span>
             </button>
           </nav>
 
-          {/* Hộp tóm tắt trạng thái duyệt nhanh trên Sidebar */}
           <div className="mp-sidebar-mini-stats">
             <div className="mp-mini-stat-row">
-              <span>🟢 Đang hiển thị</span>
+              <span>📍 Kho lấy hàng</span>
+              <strong>{activePickupProvince}</strong>
+            </div>
+            <div className="mp-mini-stat-row">
+              <span>🟢 Đang bán trên Web</span>
               <strong>{approvedCount} quà</strong>
             </div>
             <div className="mp-mini-stat-row">
-              <span>🟡 Chờ Admin duyệt</span>
-              <strong>{pendingCount} quà</strong>
+              <span>📦 Đơn chờ đóng gói</span>
+              <strong style={{ color: pendingOrdersCount > 0 ? '#e11d48' : undefined }}>
+                {pendingOrdersCount} đơn
+              </strong>
             </div>
             {rejectedCount > 0 && (
               <div
@@ -1155,18 +1515,17 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   setActiveTab('products');
                 }}
               >
-                <span>🔴 Cần sửa lại</span>
+                <span>🔴 Quà cần sửa lại</span>
                 <strong>{rejectedCount} quà →</strong>
               </div>
             )}
           </div>
 
-          {/* Chân Sidebar */}
           <div className="mp-sidebar-footer">
             <button
               type="button"
               className="mp-sidebar-action-btn"
-              onClick={() => loadMerchantPortalData()}
+              onClick={() => loadMerchantPortalData(chartDays)}
               disabled={loadingPortal}
             >
               🔄 {loadingPortal ? 'Đang đồng bộ...' : 'Làm mới dữ liệu'}
@@ -1192,7 +1551,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           </div>
         </aside>
 
-        {/* Lớp phủ mờ (Backdrop) khi mở menu trên màn hình nhỏ */}
         {sidebarOpen && (
           <div
             className="mp-sidebar-backdrop"
@@ -1205,7 +1563,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
             NỘI DUNG CHÍNH BÊN PHẢI (MAIN CONTENT AREA)
             ==================================================================== */}
         <main className={`mp-main-content ${sidebarOpen ? 'with-sidebar' : 'full-width'}`}>
-          {/* Thanh Top Header của Kênh Người Bán */}
           <header className="mp-topbar">
             <div className="mp-topbar-left">
               <button
@@ -1229,22 +1586,24 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   <span>/</span>
                   <strong>
                     {activeTab === 'overview' && 'Tổng quan hiệu suất'}
+                    {activeTab === 'orders' && 'Quản lý đơn hàng COD'}
                     {activeTab === 'products' && 'Quản lý sản phẩm'}
                     {activeTab === 'editor' &&
                       (editingProductId ? 'Chỉnh sửa sản phẩm' : 'Đăng quà tặng mới')}
                     {activeTab === 'featured' && 'Quảng cáo Đẩy Top (VNPAY)'}
-                    {activeTab === 'profile' && 'Hồ sơ & Cài đặt Gian hàng'}
+                    {activeTab === 'profile' && 'Hồ sơ & Địa chỉ Kho hàng'}
                   </strong>
                 </div>
                 <h1 className="mp-page-title">
                   {activeTab === 'overview' && `Tổng quan: ${activeShopName}`}
+                  {activeTab === 'orders' && `Đơn Đặt Quà Trực Tiếp (${orders.length} đơn)`}
                   {activeTab === 'products' && 'Kho Quà Tặng Của Gian Hàng'}
                   {activeTab === 'editor' &&
                     (editingProductId
                       ? 'Chỉnh Sửa Thông Tin Món Quà'
-                      : 'Đăng Quà Tặng Mới (Tích Hợp AI Phân Loại)')}
+                      : 'Đăng Quà Tặng Bán Trực Tiếp Trên GiftFinder')}
                   {activeTab === 'featured' && 'Dịch Vụ Đẩy Top & Hiển Thị Nổi Bật'}
-                  {activeTab === 'profile' && 'Hồ Sơ Định Danh & Thông Tin Liên Hệ'}
+                  {activeTab === 'profile' && 'Hồ Sơ Định Danh & Địa Chỉ Kho Lấy Hàng'}
                 </h1>
               </div>
             </div>
@@ -1253,9 +1612,9 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
               <button
                 type="button"
                 className="mp-btn-outline"
-                onClick={() => go('catalog')}
+                onClick={() => setActiveTab('orders')}
               >
-                🔍 Xem Catalog Quà
+                📦 Đơn hàng ({pendingOrdersCount} chờ giao)
               </button>
               <button
                 type="button"
@@ -1268,219 +1627,908 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           </header>
 
           {/* ==================================================================
-              PHÂN KHU 1: TỔNG QUAN HIỆU SUẤT GIAN HÀNG ('overview')
+              PHÂN KHU 1: TỔNG QUAN HIỆU SUẤT GIAN HÀNG ('overview' - MẪU EGIFT)
               ================================================================== */}
           {activeTab === 'overview' && (
             <div className="mp-tab-panel">
-              {/* 6 Thẻ KPI Thực Tế */}
-              <section className="mp-kpi-grid">
-                <article
-                  className="mp-kpi-card clickable"
-                  onClick={() => {
-                    setStatusFilter('ALL');
-                    setActiveTab('products');
-                  }}
-                >
-                  <div className="mp-kpi-top">
-                    <span className="mp-kpi-icon rose">🎁</span>
-                    <span className="mp-kpi-badge">Toàn bộ kho</span>
+              {/* KHỐI 1: VIỆC CẦN XỬ LÝ HÔM NAY (TO-DO LIST) */}
+              <section className="mp-todo-section">
+                <div className="mp-todo-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>⚡</span>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--eg-text-primary)' }}>
+                        Việc Cần Xử Lý Hôm Nay
+                      </h2>
+                      <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--eg-text-secondary)' }}>
+                        Theo dõi nhanh các tác vụ đơn hàng và sản phẩm cần xử lý ngay
+                      </p>
+                    </div>
                   </div>
-                  <div className="mp-kpi-value">{stats?.totalProducts ?? products.length}</div>
-                  <div className="mp-kpi-label">Tổng sản phẩm quà tặng</div>
+                  <button
+                    type="button"
+                    onClick={() => loadMerchantPortalData(chartDays)}
+                    disabled={loadingPortal}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--eg-accent)',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    🔄 {loadingPortal ? 'Đang tải...' : 'Làm mới'}
+                  </button>
+                </div>
+
+                <div className="mp-todo-grid">
+                  <div
+                    className={`mp-todo-item ${actualPendingOrdersCount > 0 ? 'urgent' : ''}`}
+                    onClick={() => {
+                      setOrderStatusFilter('Pending');
+                      setActiveTab('orders');
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    title="Nhấn để xem danh sách đơn chờ xác nhận"
+                  >
+                    <div
+                      className="mp-todo-num"
+                      style={{
+                        color: actualPendingOrdersCount > 0 ? 'var(--eg-accent)' : 'var(--eg-text-primary)',
+                      }}
+                    >
+                      {actualPendingOrdersCount}
+                    </div>
+                    <div className="mp-todo-label">⏳ Chờ xác nhận</div>
+                    <div className="mp-todo-sub">Đơn khách mới đặt COD</div>
+                  </div>
+
+                  <div
+                    className={`mp-todo-item ${packingOrdersCount > 0 ? 'urgent' : ''}`}
+                    onClick={() => {
+                      setOrderStatusFilter('Packing');
+                      setActiveTab('orders');
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    title="Nhấn để xem đơn đang đóng gói"
+                  >
+                    <div
+                      className="mp-todo-num"
+                      style={{
+                        color: packingOrdersCount > 0 ? '#b45309' : 'var(--eg-text-primary)',
+                      }}
+                    >
+                      {packingOrdersCount}
+                    </div>
+                    <div className="mp-todo-label">🎁 Đang gói quà</div>
+                    <div className="mp-todo-sub">Chuẩn bị giao Shipper</div>
+                  </div>
+
+                  <div
+                    className="mp-todo-item"
+                    onClick={() => {
+                      setOrderStatusFilter('Shipping');
+                      setActiveTab('orders');
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    title="Nhấn để xem đơn đang vận chuyển"
+                  >
+                    <div className="mp-todo-num" style={{ color: '#059669' }}>
+                      {shippingOrdersCount}
+                    </div>
+                    <div className="mp-todo-label">🚚 Đang vận chuyển</div>
+                    <div className="mp-todo-sub">Shipper đang giao khách</div>
+                  </div>
+
+                  <div
+                    className={`mp-todo-item ${rejectedCount > 0 ? 'urgent' : ''}`}
+                    onClick={() => {
+                      setStatusFilter('Rejected');
+                      setActiveTab('products');
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    title="Nhấn để xem sản phẩm cần chỉnh sửa"
+                  >
+                    <div
+                      className="mp-todo-num"
+                      style={{
+                        color: rejectedCount > 0 ? '#dc2626' : 'var(--eg-text-primary)',
+                      }}
+                    >
+                      {rejectedCount}
+                    </div>
+                    <div className="mp-todo-label">⚠️ Quà cần chỉnh sửa</div>
+                    <div className="mp-todo-sub">Bị từ chối / cần bổ sung</div>
+                  </div>
+                </div>
+              </section>
+
+              {/* KHỐI 2: CHỈ SỐ KINH DOANH CỐT LÕI (4 THẺ GỌN GÀNG) */}
+              <div className="mp-kpi-heading-row">
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--eg-text-primary)', margin: 0 }}>
+                  📊 Chỉ Số Hiệu Suất Gian Hàng
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleChangeChartDays(7)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: chartDays === 7 ? '1px solid var(--eg-accent)' : '1px solid var(--eg-border)',
+                      background: chartDays === 7 ? 'var(--eg-surface-strong)' : '#ffffff',
+                      color: chartDays === 7 ? 'var(--eg-accent)' : 'var(--eg-text-secondary)',
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    7 ngày qua
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChangeChartDays(30)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: chartDays === 30 ? '1px solid var(--eg-accent)' : '1px solid var(--eg-border)',
+                      background: chartDays === 30 ? 'var(--eg-surface-strong)' : '#ffffff',
+                      color: chartDays === 30 ? 'var(--eg-accent)' : 'var(--eg-text-secondary)',
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    30 ngày qua
+                  </button>
+                </div>
+              </div>
+
+              <section className="mp-kpi-grid-4">
+                <article className="mp-kpi-card" onClick={() => setActiveTab('orders')}>
+                  <div className="mp-kpi-top">
+                    <span className="mp-kpi-icon" style={{ background: '#fdf8f0', color: 'var(--eg-accent)' }}>💰</span>
+                    <span className="mp-kpi-pill success">Đã thu COD</span>
+                  </div>
+                  <div className="mp-kpi-value" style={{ color: 'var(--eg-accent)' }}>
+                    {completedRevenue.toLocaleString('vi-VN')}đ
+                  </div>
+                  <div className="mp-kpi-label">Doanh thu hoàn tất</div>
+                  <div className="mp-kpi-sub">
+                    <span>• Đã giao thành công</span>
+                    <b>{completedOrdersCount} đơn</b>
+                  </div>
                 </article>
 
-                <article className="mp-kpi-card">
+                <article className="mp-kpi-card" onClick={() => setActiveTab('orders')}>
                   <div className="mp-kpi-top">
-                    <span className="mp-kpi-icon green">📈</span>
-                    <span className="mp-kpi-badge success">Real-time</span>
+                    <span className="mp-kpi-icon" style={{ background: '#fef3c7', color: '#b45309' }}>🚚</span>
+                    <span className="mp-kpi-pill warning">Chờ thu COD</span>
                   </div>
-                  <div className="mp-kpi-value">{stats?.totalClicks ?? 0}</div>
-                  <div className="mp-kpi-label">Lượt khách Click mua hàng</div>
+                  <div className="mp-kpi-value" style={{ color: '#b45309' }}>
+                    {pendingRevenue.toLocaleString('vi-VN')}đ
+                  </div>
+                  <div className="mp-kpi-label">Doanh số đang giao</div>
+                  <div className="mp-kpi-sub">
+                    <span>• Chờ Shipper đối soát</span>
+                    <b>{pendingOrdersCount + shippingOrdersCount} đơn</b>
+                  </div>
                 </article>
 
-                <article
-                  className="mp-kpi-card clickable"
-                  onClick={() => {
-                    setStatusFilter('Approved');
-                    setActiveTab('products');
-                  }}
-                >
+                <article className="mp-kpi-card" onClick={() => setActiveTab('orders')}>
                   <div className="mp-kpi-top">
-                    <span className="mp-kpi-icon emerald">✓</span>
-                    <span className="mp-kpi-badge success">Đang bán</span>
+                    <span className="mp-kpi-icon" style={{ background: 'var(--eg-surface-strong)', color: 'var(--eg-text-primary)' }}>📦</span>
+                    <span className="mp-kpi-pill neutral">Đơn trực tiếp</span>
                   </div>
-                  <div className="mp-kpi-value">{approvedCount}</div>
-                  <div className="mp-kpi-label">Đã duyệt hiển thị trên Web & AI</div>
+                  <div className="mp-kpi-value" style={{ color: 'var(--eg-text-primary)' }}>
+                    {totalOrdersCount}
+                  </div>
+                  <div className="mp-kpi-label">Tổng đơn hàng COD</div>
+                  <div className="mp-kpi-sub">
+                    <span>• Giá trị trung bình (AOV)</span>
+                    <b>{avgOrderValue.toLocaleString('vi-VN')}đ</b>
+                  </div>
                 </article>
 
-                <article
-                  className="mp-kpi-card clickable"
-                  onClick={() => {
-                    setStatusFilter('Pending');
-                    setActiveTab('products');
-                  }}
-                >
+                <article className="mp-kpi-card" onClick={() => setActiveTab('products')}>
                   <div className="mp-kpi-top">
-                    <span className="mp-kpi-icon amber">⏳</span>
-                    <span className="mp-kpi-badge warning">Đang xét duyệt</span>
+                    <span className="mp-kpi-icon" style={{ background: 'var(--eg-surface-strong)', color: 'var(--eg-text-primary)' }}>🎁</span>
+                    <span className="mp-kpi-pill neutral">Kho quà</span>
                   </div>
-                  <div className="mp-kpi-value">{pendingCount}</div>
-                  <div className="mp-kpi-label">Đang chờ Admin phê duyệt</div>
-                </article>
-
-                <article
-                  className="mp-kpi-card clickable"
-                  onClick={() => {
-                    setStatusFilter('Rejected');
-                    setActiveTab('products');
-                  }}
-                >
-                  <div className="mp-kpi-top">
-                    <span className="mp-kpi-icon danger">⚠️</span>
-                    <span className="mp-kpi-badge danger">Cần chú ý</span>
+                  <div className="mp-kpi-value" style={{ color: 'var(--eg-text-primary)' }}>
+                    {approvedCount} <small style={{ fontSize: 13, fontWeight: 500, color: 'var(--eg-text-secondary)' }}>/ {products.length} món</small>
                   </div>
-                  <div className="mp-kpi-value">{rejectedCount}</div>
-                  <div className="mp-kpi-label">Sản phẩm bị từ chối cần sửa</div>
-                </article>
-
-                <article
-                  className="mp-kpi-card clickable"
-                  onClick={() => setActiveTab('featured')}
-                >
-                  <div className="mp-kpi-top">
-                    <span className="mp-kpi-icon indigo">🚀</span>
-                    <span className="mp-kpi-badge indigo">VNPAY Ads</span>
+                  <div className="mp-kpi-label">Quà đang hiển thị</div>
+                  <div className="mp-kpi-sub">
+                    <span>• Lượt xem gian hàng</span>
+                    <b>{stats?.totalClicks ?? 0} lượt</b>
                   </div>
-                  <div className="mp-kpi-value">{featuredCount}</div>
-                  <div className="mp-kpi-label">Quà đang chạy Đẩy Top Featured</div>
                 </article>
               </section>
 
-              {/* Khu vực 2 cột: Bảng Top 5 sản phẩm hút khách + Thông tin Hồ sơ nhanh */}
+              {/* KHỐI 3: HÀNG 2 CỘT CÂN ĐỐI (BIỂU ĐỒ DOANH THU & ĐƠN HÀNG + 5 ĐƠN HÀNG MỚI NHẤT) */}
               <div className="mp-overview-columns">
+                {/* CỘT TRÁI: BIỂU ĐỒ DOANH THU & ĐƠN HÀNG */}
                 <section className="mp-panel-card">
                   <div className="mp-panel-header">
                     <div>
-                      <h2>🏆 Top 5 Quà Tặng Hút Khách Nhất</h2>
-                      <p>Xếp hạng theo số lượt khách hàng bấm chuyển hướng mua thực tế</p>
+                      <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--eg-text-primary)', margin: 0 }}>
+                        📈 Biến Động Đơn Hàng & Lượt Xem ({chartDays} ngày qua)
+                      </h2>
+                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--eg-text-secondary)' }}>
+                        Theo dõi lượng khách xem quà và đơn hàng phát sinh
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 12, fontWeight: 700 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--eg-text-primary)' }}>
+                        <i style={{ width: 14, height: 10, background: 'var(--eg-border)', borderRadius: 2, display: 'inline-block' }} />
+                        Lượt xem
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--eg-accent)' }}>
+                        <i style={{ width: 14, height: 10, background: 'var(--eg-accent)', borderRadius: 2, display: 'inline-block' }} />
+                        Đơn hàng
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '16px 8px 6px',
+                      border: '1px solid var(--eg-border)',
+                      borderRadius: 12,
+                      background: '#ffffff',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${Math.max(1, chartPoints.length)}, minmax(0, 1fr))`,
+                        alignItems: 'end',
+                        height: 200,
+                        gap: chartDays === 7 ? 12 : 4,
+                        padding: '10px 10px 0',
+                        borderBottom: '1px solid var(--eg-border)',
+                      }}
+                    >
+                      {chartPoints.map((pt) => {
+                        const clickHeightPct = Math.max(
+                          4,
+                          Math.round((pt.clicks / maxChartVal) * 160)
+                        );
+                        const orderHeightPct = Math.max(
+                          pt.orders > 0 ? 18 : 4,
+                          Math.round((pt.orders / maxChartVal) * 160)
+                        );
+                        return (
+                          <div
+                            key={pt.fullDate}
+                            title={`Ngày ${pt.dateLabel}: ${pt.clicks} Xem · ${pt.orders} Đơn (${pt.revenue.toLocaleString('vi-VN')}đ)`}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              height: '100%',
+                            }}
+                          >
+                            {(pt.orders > 0 || pt.clicks > 0) && chartDays === 7 && (
+                              <div
+                                style={{
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  color: pt.orders > 0 ? 'var(--eg-accent)' : 'var(--eg-text-secondary)',
+                                  marginBottom: 4,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {pt.orders > 0 ? `${pt.orders} đơn` : `${pt.clicks} xem`}
+                              </div>
+                            )}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-end',
+                                gap: chartDays === 7 ? 4 : 2,
+                                width: '100%',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: chartDays === 7 ? 16 : 6,
+                                  height: clickHeightPct,
+                                  background: pt.clicks > 0 ? '#dfc8a8' : '#f5ebe0',
+                                  borderRadius: '4px 4px 0 0',
+                                  transition: 'height 0.3s ease',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  width: chartDays === 7 ? 16 : 6,
+                                  height: orderHeightPct,
+                                  background: pt.orders > 0 ? 'var(--eg-accent)' : '#eedec7',
+                                  borderRadius: '4px 4px 0 0',
+                                  transition: 'height 0.3s ease',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${Math.max(1, chartPoints.length)}, minmax(0, 1fr))`,
+                        padding: '8px 10px 4px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {chartPoints.map((pt, i) => (
+                        <span
+                          key={pt.fullDate}
+                          style={{
+                            fontSize: chartDays === 7 ? 12 : 10,
+                            color: 'var(--eg-text-secondary)',
+                            fontWeight: 600,
+                            display: chartDays === 30 && i % 3 !== 0 ? 'none' : 'block',
+                          }}
+                        >
+                          {pt.dateLabel}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* CỘT PHẢI: BẢNG 5 ĐƠN HÀNG MỚI NHẤT */}
+                <section className="mp-panel-card">
+                  <div className="mp-panel-header">
+                    <div>
+                      <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--eg-text-primary)', margin: 0 }}>
+                        🛒 Đơn Hàng Mới Nhất
+                      </h2>
+                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--eg-text-secondary)' }}>
+                        Đơn khách đặt mua quà trực tiếp từ gian hàng
+                      </p>
                     </div>
                     <button
                       type="button"
                       className="mp-link-btn"
-                      onClick={() => setActiveTab('products')}
+                      onClick={() => setActiveTab('orders')}
                     >
-                      Xem tất cả sản phẩm →
+                      Xem tất cả ({orders.length}) →
                     </button>
                   </div>
 
-                  {stats?.topProducts && stats.topProducts.length > 0 ? (
-                    <div className="mp-top-list">
-                      {stats.topProducts.map((tp, idx) => (
-                        <div key={tp.productId} className="mp-top-row">
-                          <div className={`mp-rank-badge rank-${idx + 1}`}>#{idx + 1}</div>
-                          <div className="mp-top-info">
-                            <h4>
-                              {tp.productName}
-                              {tp.isFeatured && (
-                                <span className="mp-featured-mini-tag">🔥 Featured</span>
-                              )}
-                            </h4>
-                            <span className="mp-top-price">
-                              {tp.price.toLocaleString('vi-VN')}đ
-                            </span>
-                          </div>
-                          <div className="mp-top-stats">
-                            <strong>{tp.clickCount} lượt click</strong>
-                          </div>
-                          <div>
-                            {!tp.isFeatured ? (
-                              <button
-                                type="button"
-                                className="mp-mini-boost-btn"
-                                onClick={() => {
-                                  const found = products.find((p) => p.id === tp.productId);
-                                  if (found) {
-                                    handleInitiateBuyFeatured(found, 0);
-                                  } else {
-                                    setActiveTab('featured');
-                                  }
-                                }}
-                              >
-                                🚀 Đẩy Top
-                              </button>
-                            ) : (
-                              <span className="mp-active-ads-pill">Đang ưu tiên</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                  {orders.length > 0 ? (
+                    <div style={{ overflowX: 'auto', flex: 1 }}>
+                      <table
+                        style={{
+                          width: '100%',
+                          borderCollapse: 'collapse',
+                          fontSize: 13,
+                        }}
+                      >
+                        <thead>
+                          <tr
+                            style={{
+                              background: 'var(--eg-surface-strong)',
+                              color: 'var(--eg-text-secondary)',
+                              textAlign: 'left',
+                              borderBottom: '1px solid var(--eg-border)',
+                            }}
+                          >
+                            <th style={{ padding: '8px 6px', fontSize: 12 }}>Mã đơn</th>
+                            <th style={{ padding: '8px 6px', fontSize: 12 }}>Khách nhận</th>
+                            <th style={{ padding: '8px 6px', fontSize: 12 }}>Thu hộ COD</th>
+                            <th style={{ padding: '8px 6px', fontSize: 12 }}>Trạng thái</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orders.slice(0, 5).map((ord) => (
+                            <tr
+                              key={ord.id}
+                              style={{
+                                borderBottom: '1px solid var(--eg-surface-muted)',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => setActiveTab('orders')}
+                            >
+                              <td style={{ padding: '10px 6px', fontWeight: 700, color: 'var(--eg-text-primary)' }}>
+                                {ord.orderCode}
+                                <div style={{ fontSize: 11, color: 'var(--eg-text-tertiary)', fontWeight: 500 }}>
+                                  {new Date(ord.createdAt).toLocaleDateString('vi-VN')}
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 6px' }}>
+                                <strong style={{ color: 'var(--eg-text-primary)' }}>{ord.receiverName}</strong>
+                                <div style={{ fontSize: 11.5, color: 'var(--eg-text-secondary)' }}>
+                                  📍 {ord.receiverProvince}{' '}
+                                  {ord.shippingMethod === 'Express2H' && (
+                                    <span style={{ color: 'var(--eg-accent)', fontWeight: 700 }}>
+                                      (⚡ Hỏa tốc 2H)
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 6px', fontWeight: 800, color: 'var(--eg-accent)' }}>
+                                {ord.totalAmount.toLocaleString('vi-VN')}đ
+                              </td>
+                              <td style={{ padding: '10px 6px' }}>
+                                {renderOrderStatusBadge(ord.status)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   ) : (
-                    <div className="mp-empty-box">
-                      <p>Chưa có dữ liệu xếp hạng. Hãy đăng sản phẩm đầu tiên cho gian hàng!</p>
-                      <button
-                        type="button"
-                        className="mp-btn-primary"
-                        onClick={handleStartCreateNew}
-                      >
-                        + Đăng quà mới ngay
-                      </button>
+                    <div className="mp-empty-box" style={{ padding: '24px 16px' }}>
+                      <p style={{ color: 'var(--eg-text-secondary)', margin: 0 }}>Chưa có đơn đặt hàng nào.</p>
                     </div>
                   )}
                 </section>
-
-                <section className="mp-panel-card">
-                  <div className="mp-panel-header">
-                    <div>
-                      <h2>🏪 Hồ Sơ Đối Tác</h2>
-                      <p>Thông tin định danh trên hệ thống</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="mp-link-btn"
-                      onClick={() => setActiveTab('profile')}
-                    >
-                      Chỉnh sửa ✏️
-                    </button>
-                  </div>
-
-                  <div className="mp-Quick-profile-list">
-                    <div className="mp-qp-item">
-                      <span>Tên thương hiệu:</span>
-                      <strong>{activeShopName}</strong>
-                    </div>
-                    <div className="mp-qp-item">
-                      <span>Email nhận thông báo:</span>
-                      <strong>{profile?.contactEmail || user?.email || 'Chưa cập nhật'}</strong>
-                    </div>
-                    <div className="mp-qp-item">
-                      <span>Hotline / Zalo:</span>
-                      <strong>{profile?.contactPhone || 'Chưa cập nhật'}</strong>
-                    </div>
-                    <div className="mp-qp-item">
-                      <span>Giấy phép kinh doanh:</span>
-                      <strong>{profile?.businessLicense || 'Chưa bổ sung'}</strong>
-                    </div>
-                  </div>
-
-                  <div className="mp-ai-tip-banner">
-                    <strong>💡 Mẹo tăng gấp 3 lần đơn hàng:</strong>
-                    <p>
-                      Khi đăng quà mới, hãy sử dụng tính năng <b>"AI Phân tích & Gợi ý Tag"</b> để sản phẩm được gắn đầy đủ thẻ Dịp lễ & Cung hoàng đạo. AI Chatbot sẽ ưu tiên giới thiệu các món quà có đủ thẻ phân loại!
-                    </p>
-                  </div>
-                </section>
               </div>
+
+              {/* KHỐI 4: LỐI TẮT NHANH (QUICK ACTIONS) & CHIA SẺ LINK GIAN HÀNG */}
+              <section className="mp-quick-actions-bar">
+                <div className="mp-share-chip">
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--eg-text-primary)' }}>
+                    🔗 Link Gian Hàng:
+                  </span>
+                  <input
+                    readOnly
+                    value={shopShareUrl}
+                    className="mp-share-input"
+                  />
+                  <button
+                    type="button"
+                    className="mp-btn-action"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(shopShareUrl);
+                      onNotify('📋 Đã sao chép link gian hàng vào bộ nhớ tạm!');
+                    }}
+                  >
+                    📋 Sao chép
+                  </button>
+                  <button
+                    type="button"
+                    className="mp-btn-action"
+                    onClick={() => setShowQrModal(true)}
+                  >
+                    📱 Lấy mã QR
+                  </button>
+                </div>
+
+                <div className="mp-action-buttons-group">
+                  <button
+                    type="button"
+                    className="mp-btn-egift primary"
+                    onClick={handleStartCreateNew}
+                  >
+                    + Đăng quà tặng mới
+                  </button>
+                  <button
+                    type="button"
+                    className="mp-btn-egift outline"
+                    onClick={() => setActiveTab('orders')}
+                  >
+                    📦 Quản lý đơn hàng
+                  </button>
+                  <button
+                    type="button"
+                    className="mp-btn-egift outline"
+                    onClick={() => setActiveTab('featured')}
+                  >
+                    🚀 Quảng cáo Đẩy Top
+                  </button>
+                </div>
+              </section>
             </div>
           )}
 
           {/* ==================================================================
-              PHÂN KHU 2: QUẢN LÝ DANH SÁCH SẢN PHẨM ('products')
+              PHÂN KHU 2: QUẢN LÝ ĐƠN ĐẶT HÀNG TRỰC TIẾP ('orders')
+              ================================================================== */}
+          {activeTab === 'orders' && (
+            <div className="mp-tab-panel">
+              <section className="mp-panel-card">
+                <div className="mp-products-toolbar">
+                  <div className="mp-status-tabs">
+                    {[
+                      { id: 'ALL', label: 'Tất cả đơn', count: orders.length },
+                      {
+                        id: 'Pending',
+                        label: '⏳ Chờ xác nhận',
+                        count: orders.filter((o) => o.status === 'Pending').length,
+                      },
+                      {
+                        id: 'Packing',
+                        label: '🎁 Đang gói quà',
+                        count: orders.filter((o) => o.status === 'Packing').length,
+                      },
+                      {
+                        id: 'Shipping',
+                        label: '🚚 Đang giao',
+                        count: orders.filter((o) => o.status === 'Shipping').length,
+                      },
+                      {
+                        id: 'Completed',
+                        label: '✓ Đã giao thành công',
+                        count: orders.filter((o) => o.status === 'Completed').length,
+                      },
+                      {
+                        id: 'Cancelled',
+                        label: '✕ Đã hủy',
+                        count: orders.filter((o) => o.status === 'Cancelled').length,
+                      },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className={`mp-status-tab ${orderStatusFilter === tab.id ? 'active' : ''}`}
+                        onClick={() => setOrderStatusFilter(tab.id)}
+                      >
+                        {tab.label} <span>{tab.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredOrders.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {filteredOrders.map((ord) => (
+                      <article
+                        key={ord.id}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 16,
+                          padding: 20,
+                          background: '#ffffff',
+                          boxShadow: '0 2px 8px rgba(15, 23, 42, 0.03)',
+                        }}
+                      >
+                        {/* Dòng tiêu đề đơn hàng */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 10,
+                            paddingBottom: 14,
+                            borderBottom: '1px solid #f1f5f9',
+                            marginBottom: 14,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: 16, color: '#0f172a' }}>
+                              Đơn hàng #{ord.orderCode}
+                            </strong>
+                            {renderOrderStatusBadge(ord.status)}
+                            <span
+                              style={{
+                                background:
+                                  ord.shippingMethod === 'Express2H' ? '#ffe4e6' : '#f1f5f9',
+                                color:
+                                  ord.shippingMethod === 'Express2H' ? '#e11d48' : '#334155',
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {ord.shippingMethod === 'Express2H'
+                                ? '⚡ Giao Hỏa Tốc Nội Thành 2H'
+                                : '🚚 Giao Tiêu Chuẩn'}
+                            </span>
+                            <span
+                              style={{
+                                background: '#fef9c3',
+                                color: '#854d0e',
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              💵 Thanh toán COD (Thu hộ khi giao)
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 12.5, color: '#64748b' }}>
+                            Đặt lúc: {new Date(ord.createdAt).toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+
+                        {/* Nội dung 2 cột: Sản phẩm & Quà tặng vs Địa chỉ giao & Hành động */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                            gap: 20,
+                          }}
+                        >
+                          {/* Cột trái: Danh sách món quà + Lời chúc thiệp + Che giá */}
+                          <div>
+                            <div style={{ marginBottom: 12 }}>
+                              {ord.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  style={{
+                                    display: 'flex',
+                                    gap: 12,
+                                    alignItems: 'center',
+                                    padding: '8px 0',
+                                    borderBottom: '1px dashed #f1f5f9',
+                                  }}
+                                >
+                                  <img
+                                    src={getHighResImageUrl(
+                                      item.productImageUrl || SAMPLE_GIFT_IMAGES[0].url
+                                    )}
+                                    alt={item.productName}
+                                    style={{
+                                      width: 56,
+                                      height: 56,
+                                      borderRadius: 10,
+                                      objectFit: 'cover',
+                                    }}
+                                  />
+                                  <div style={{ flex: 1 }}>
+                                    <strong style={{ fontSize: 14, color: '#0f172a' }}>
+                                      {item.productName}
+                                    </strong>
+                                    <div style={{ fontSize: 12.5, color: '#64748b' }}>
+                                      Phân loại: {item.variant} · Số lượng: <b>x{item.quantity}</b>
+                                    </div>
+                                  </div>
+                                  <strong style={{ fontSize: 14, color: '#0f172a' }}>
+                                    {item.lineTotal.toLocaleString('vi-VN')}đ
+                                  </strong>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Khung yêu cầu Gói quà & Lời chúc viết lên thiệp */}
+                            {(ord.hasGiftWrap || ord.giftMessage) && (
+                              <div
+                                style={{
+                                  padding: '12px 14px',
+                                  borderRadius: 12,
+                                  background: '#fff1f2',
+                                  border: '1px solid #fecdd3',
+                                  marginBottom: 10,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: 12.5,
+                                    fontWeight: 800,
+                                    color: '#be123c',
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  🎀 YÊU CẦU GÓI QUÀ CAO CẤP & VIẾT THIỆP TAY (+30.000đ):
+                                </div>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontSize: 13.5,
+                                    fontStyle: 'italic',
+                                    color: '#881337',
+                                  }}
+                                >
+                                  “{ord.giftMessage || 'Chúc bạn luôn vui vẻ và hạnh phúc!'}”
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Cảnh báo Che giá tiền trên hộp quà */}
+                            {ord.hidePriceOnPackage && (
+                              <div
+                                style={{
+                                  padding: '8px 12px',
+                                  borderRadius: 8,
+                                  background: '#fef2f2',
+                                  border: '1px dashed #f87171',
+                                  color: '#b91c1c',
+                                  fontSize: 12.5,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                🤫 ĐƠN TẶNG QUÀ BÍ MẬT: Shop vui lòng che giá sản phẩm trên nhãn dán bên ngoài hộp quà!
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Cột phải: Thông tin người nhận + Vận đơn + Tổng thu COD */}
+                          <div
+                            style={{
+                              background: '#f8fafc',
+                              padding: 16,
+                              borderRadius: 12,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  color: '#475569',
+                                  marginBottom: 6,
+                                }}
+                              >
+                                📍 THÔNG TIN NGƯỜI NHẬN QUÀ:
+                              </div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                                {ord.receiverName} — 📞 {ord.receiverPhone}
+                              </div>
+                              <div style={{ fontSize: 13, color: '#334155', marginTop: 4 }}>
+                                {ord.receiverAddress}, {ord.receiverDistrict},{' '}
+                                <b>{ord.receiverProvince}</b>
+                              </div>
+                              {ord.deliveryNote && (
+                                <div
+                                  style={{
+                                    fontSize: 12.5,
+                                    color: '#d97706',
+                                    marginTop: 6,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  📝 Ghi chú giao hàng: {ord.deliveryNote}
+                                </div>
+                              )}
+
+                              {ord.trackingCode && (
+                                <div
+                                  style={{
+                                    marginTop: 10,
+                                    padding: '8px 12px',
+                                    background: '#eff6ff',
+                                    borderRadius: 8,
+                                    border: '1px solid #bfdbfe',
+                                    fontSize: 12.5,
+                                    color: '#1e40af',
+                                  }}
+                                >
+                                  🚚 Đơn vị vận chuyển: <b>{ord.shippingCarrier}</b> · Mã vận đơn:{' '}
+                                  <b>{ord.trackingCode}</b>
+                                </div>
+                              )}
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: 14,
+                                paddingTop: 12,
+                                borderTop: '1px solid #e2e8f0',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: 10,
+                              }}
+                            >
+                              <div>
+                                <span style={{ fontSize: 12, color: '#64748b', display: 'block' }}>
+                                  Tổng tiền Shipper thu hộ (COD):
+                                </span>
+                                <strong style={{ fontSize: 18, color: '#e11d48' }}>
+                                  {ord.totalAmount.toLocaleString('vi-VN')}đ
+                                </strong>
+                                <small style={{ fontSize: 11.5, color: '#64748b', marginLeft: 6 }}>
+                                  (Ship: {ord.shippingFee.toLocaleString('vi-VN')}đ)
+                                </small>
+                              </div>
+
+                              {/* Các nút xử lý đơn hàng tinh gọn cho Shop */}
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {ord.status === 'Pending' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="mp-btn-outline"
+                                      disabled={updatingOrderId === ord.id}
+                                      onClick={() =>
+                                        handleQuickUpdateOrderStatus(ord, 'Packing')
+                                      }
+                                    >
+                                      🎁 Chuẩn bị & Gói quà
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="mp-btn-primary"
+                                      disabled={updatingOrderId === ord.id}
+                                      onClick={() => openShippingModal(ord)}
+                                    >
+                                      🚚 Giao cho Shipper →
+                                    </button>
+                                  </>
+                                )}
+
+                                {ord.status === 'Packing' && (
+                                  <button
+                                    type="button"
+                                    className="mp-btn-primary"
+                                    disabled={updatingOrderId === ord.id}
+                                    onClick={() => openShippingModal(ord)}
+                                  >
+                                    🚚 Giao cho Shipper (Nhập Mã VĐ) →
+                                  </button>
+                                )}
+
+                                {ord.status === 'Shipping' && (
+                                  <button
+                                    type="button"
+                                    style={{
+                                      padding: '9px 16px',
+                                      borderRadius: 10,
+                                      border: 'none',
+                                      background: '#16a34a',
+                                      color: '#fff',
+                                      fontWeight: 700,
+                                      fontSize: 13,
+                                      cursor: 'pointer',
+                                    }}
+                                    disabled={updatingOrderId === ord.id}
+                                    onClick={() =>
+                                      handleQuickUpdateOrderStatus(ord, 'Completed')
+                                    }
+                                  >
+                                    ✅ Shipper báo: Đã giao xong (Cộng doanh thu)
+                                  </button>
+                                )}
+
+                                {(ord.status === 'Pending' || ord.status === 'Packing') && (
+                                  <button
+                                    type="button"
+                                    className="mp-action-btn delete"
+                                    disabled={updatingOrderId === ord.id}
+                                    onClick={() =>
+                                      handleQuickUpdateOrderStatus(ord, 'Cancelled')
+                                    }
+                                  >
+                                    ✕ Hủy
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mp-empty-box">
+                    <div style={{ fontSize: 40, marginBottom: 10 }}>📦</div>
+                    <h3>Chưa có đơn hàng nào trong trạng thái này</h3>
+                    <p>Khi khách hàng đặt mua quà của Shop, đơn hàng sẽ hiển thị ngay tại đây.</p>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {/* ==================================================================
+              PHÂN KHU 3: QUẢN LÝ DANH SÁCH SẢN PHẨM ('products')
               ================================================================== */}
           {activeTab === 'products' && (
             <div className="mp-tab-panel">
               <section className="mp-panel-card">
-                {/* Thanh công cụ lọc & tìm kiếm */}
                 <div className="mp-products-toolbar">
                   <div className="mp-status-tabs">
                     {[
@@ -1521,13 +2569,12 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   </div>
                 </div>
 
-                {/* Danh sách sản phẩm */}
                 {filteredProducts.length > 0 ? (
                   <div className="mp-product-table">
                     {filteredProducts.map((item) => {
                       const statusInfo =
                         item.status === 'Approved'
-                          ? { label: 'Đã duyệt hiển thị', cls: 'approved' }
+                          ? { label: 'Đang bán trên GiftFinder', cls: 'approved' }
                           : item.status === 'Rejected'
                             ? { label: 'Bị từ chối', cls: 'rejected' }
                             : item.status === 'Inactive'
@@ -1569,20 +2616,18 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                               )}
                               <span className="mp-prod-divider">•</span>
                               <span className="mp-prod-clicks">
-                                📈 <b>{item.clickCount || 0}</b> lượt khách click
+                                📦 Tồn kho: <b>{item.stockQuantity ?? 50}</b>
                               </span>
                               <span className="mp-prod-divider">•</span>
-                              <a
-                                href={item.originalUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mp-prod-ext-link"
-                              >
-                                🔗 Link gốc sản phẩm ↗
-                              </a>
+                              <span className="mp-prod-clicks">
+                                🛒 Đã bán: <b>{item.soldCount ?? 0}</b>
+                              </span>
+                              <span className="mp-prod-divider">•</span>
+                              <span className="mp-prod-clicks">
+                                📈 <b>{item.clickCount || 0}</b> lượt xem
+                              </span>
                             </div>
 
-                            {/* Hiển thị Tags & Cung Hoàng Đạo */}
                             <div className="mp-prod-tags-row">
                               {item.tagNames && item.tagNames.length > 0 ? (
                                 item.tagNames.map((t) => (
@@ -1607,7 +2652,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                                 })}
                             </div>
 
-                            {/* Hộp hiển thị lý do từ chối của Admin (nếu Rejected) */}
                             {item.status === 'Rejected' && item.rejectReason && (
                               <div className="mp-reject-reason-box">
                                 <strong>⚠️ Lý do Admin từ chối duyệt:</strong>{' '}
@@ -1622,7 +2666,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                               </div>
                             )}
 
-                            {/* Thông tin hạn Featured (nếu đang bật) */}
                             {item.isFeatured && item.featuredUntil && (
                               <div className="mp-featured-until-note">
                                 ✨ Gói Đẩy Top đang hiệu lực đến:{' '}
@@ -1633,7 +2676,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                             )}
                           </div>
 
-                          {/* Cột Nút Hành Động */}
                           <div className="mp-prod-actions">
                             <button
                               type="button"
@@ -1704,9 +2746,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   <div className="mp-empty-box">
                     <div style={{ fontSize: 40, marginBottom: 10 }}>🎁</div>
                     <h3>Không tìm thấy món quà nào trong mục này</h3>
-                    <p>
-                      Bạn có thể đổi bộ lọc trạng thái hoặc đăng sản phẩm quà tặng mới lên hệ thống.
-                    </p>
                     <button
                       type="button"
                       className="mp-btn-primary"
@@ -1721,24 +2760,21 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           )}
 
           {/* ==================================================================
-              PHÂN KHU 3: ĐĂNG QUÀ MỚI / SỬA QUÀ + TRỢ LÝ AI ('editor')
+              PHÂN KHU 4: ĐĂNG QUÀ MỚI / SỬA QUÀ + TRỢ LÝ AI ('editor')
               ================================================================== */}
           {activeTab === 'editor' && (
             <div className="mp-tab-panel">
               <div className="mp-editor-layout">
-                {/* CỘT TRÁI: FORM NHẬP LIỆU & TRỢ LÝ AI */}
                 <form onSubmit={handleSaveProduct} className="mp-panel-card mp-editor-form">
                   <div className="mp-panel-header">
                     <div>
                       <h2>
                         {editingProductId
                           ? '✏️ Cập Nhật Thông Tin Quà Tặng'
-                          : '✨ Đăng Món Quà Mới Lên GiftFinder'}
+                          : '✨ Đăng Món Quà Bán Trực Tiếp Trên GiftFinder'}
                       </h2>
                       <p>
-                        {editingProductId
-                          ? 'Lưu ý: Sau khi chỉnh sửa, sản phẩm sẽ được chuyển về trạng thái Chờ duyệt để Admin kiểm tra lại.'
-                          : 'Điền thông tin sản phẩm và bấm nút AI Phân Tích để tự động gắn thẻ Dịp tặng & Cung hoàng đạo.'}
+                        Khách hàng sẽ chọn số lượng, nhập địa chỉ nhận quà và đặt mua COD trực tiếp trên web mà không cần dẫn link ra ngoài.
                       </p>
                     </div>
                     {editingProductId && (
@@ -1783,15 +2819,27 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       </label>
                     </div>
 
-                    <label className="mp-field">
-                      <span>Đường dẫn khách đặt mua (Link Shopee / TikTok Shop / Website) *</span>
-                      <input
-                        value={prodOriginalUrl}
-                        onChange={(e) => setProdOriginalUrl(e.target.value)}
-                        placeholder="https://shopee.vn/san-pham-cua-shop..."
-                        required
-                      />
-                    </label>
+                    <div className="mp-field-row">
+                      <label className="mp-field">
+                        <span>Số lượng tồn kho sẵn sàng giao *</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={prodStockQty}
+                          onChange={(e) => setProdStockQty(e.target.value)}
+                          placeholder="VD: 50"
+                          required
+                        />
+                      </label>
+                      <label className="mp-field">
+                        <span>Kho xuất hàng của Shop</span>
+                        <input
+                          readOnly
+                          value={`📍 ${activePickupProvince} (${activeShopName})`}
+                          style={{ background: '#f8fafc', color: '#475569' }}
+                        />
+                      </label>
+                    </div>
 
                     <div className="mp-field">
                       <span>Đường dẫn hình ảnh sản phẩm (URL ảnh chất lượng cao)</span>
@@ -1825,7 +2873,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       />
                     </label>
 
-                    {/* KHỐI TRỢ LÝ AI GỢI Ý TAG & CUNG HOÀNG ĐẠO */}
                     <div className="mp-ai-assistant-box">
                       <div className="mp-ai-assistant-head">
                         <div>
@@ -1855,7 +2902,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       )}
                     </div>
 
-                    {/* BỘ CHỌN THẺ TAG CHUẨN TỪ DATABASE */}
                     <div className="mp-tag-selector-section">
                       <div className="mp-section-subtitle">
                         <span>🏷️ Chọn Thẻ Phân Loại Quà Tặng (Đã chọn: {selectedTagIds.length + customTags.length})</span>
@@ -1925,7 +2971,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                         </div>
                       )}
 
-                      {/* Nhập thêm Tag tùy chỉnh bằng tay */}
                       <div className="mp-custom-tag-Adder">
                         <input
                           value={customTagInput}
@@ -1962,7 +3007,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       )}
                     </div>
 
-                    {/* BỘ CHỌN 12 CUNG HOÀNG ĐẠO PHÙ HỢP */}
                     <div className="mp-tag-selector-section">
                       <div className="mp-section-subtitle">
                         <span>🔮 Cung Hoàng Đạo Phù Hợp (Đã chọn: {selectedZodiacs.length}/12)</span>
@@ -2012,7 +3056,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   </div>
                 </form>
 
-                {/* CỘT PHẢI: XEM TRƯỚC THẺ SẢN PHẨM TRỰC TIẾP (LIVE PREVIEW) */}
                 <aside className="mp-editor-preview">
                   <div className="mp-preview-sticky">
                     <span className="mp-preview-eyebrow">👁️ XEM TRƯỚC HIỂN THỊ TRÊN WEB</span>
@@ -2035,7 +3078,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                         </h3>
                         <div className="product-rating">
                           <span className="stars">★★★★★</span>
-                          <span>5.0 • Gian hàng {activeShopName}</span>
+                          <span>5.0 • {activeShopName} ({activePickupProvince})</span>
                         </div>
                         <div className="price-row">
                           <div>
@@ -2049,7 +3092,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                         </div>
                         <div className="card-actions">
                           <button type="button" className="buy-btn">
-                            Mua ngay →
+                            Đặt mua ngay (COD) →
                           </button>
                         </div>
                       </div>
@@ -2057,6 +3100,10 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
 
                     <div className="mp-preview-meta-card">
                       <h4>Tóm tắt phân loại AI đã gắn:</h4>
+                      <p>
+                        <strong>Tồn kho sẵn có:</strong> {prodStockQty || 50} món (Kho:{' '}
+                        {activePickupProvince})
+                      </p>
                       <p>
                         <strong>Thẻ Tag:</strong>{' '}
                         {selectedTagIds.length + customTags.length > 0
@@ -2068,16 +3115,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                             ].join(', ')
                           : 'Chưa chọn thẻ nào'}
                       </p>
-                      <p>
-                        <strong>Cung Hoàng Đạo:</strong>{' '}
-                        {selectedZodiacs.length > 0
-                          ? selectedZodiacs
-                              .map(
-                                (id) => ZODIAC_OPTIONS.find((z) => z.id === id)?.label || id
-                              )
-                              .join(', ')
-                          : 'Tất cả các cung'}
-                      </p>
                     </div>
                   </div>
                 </aside>
@@ -2086,11 +3123,10 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           )}
 
           {/* ==================================================================
-              PHÂN KHU 4: QUẢNG CÁO ĐẨY TOP FEATURED & VNPAY ('featured')
+              PHÂN KHU 5: QUẢNG CÁO ĐẨY TOP FEATURED & VNPAY ('featured')
               ================================================================== */}
           {activeTab === 'featured' && (
             <div className="mp-tab-panel">
-              {/* Chọn Gói Quảng Cáo */}
               <section className="mp-featured-plans-grid">
                 <div
                   className={`mp-plan-card ${selectedPlanType === 0 ? 'selected' : ''}`}
@@ -2106,7 +3142,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                   <ul className="mp-plan-features">
                     <li>✓ Ưu tiên vị trí đầu trong kết quả gợi ý của AI Chatbot</li>
                     <li>✓ Gắn huy hiệu <b>"Được tài trợ"</b> nổi bật trên thẻ sản phẩm</li>
-                    <li>✓ Tăng trung bình 300% lượt khách bấm xem gian hàng</li>
+                    <li>✓ Tăng trực tiếp số đơn đặt hàng COD cho gian hàng</li>
                   </ul>
                 </div>
 
@@ -2130,7 +3166,6 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                 </div>
               </section>
 
-              {/* Danh sách sản phẩm đủ điều kiện Đẩy Top */}
               <section className="mp-panel-card" style={{ marginTop: 24 }}>
                 <div className="mp-panel-header">
                   <div>
@@ -2168,8 +3203,8 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                               )}
                             </h4>
                             <p>
-                              Giá bán: <b>{p.price.toLocaleString('vi-VN')}đ</b> • Lượt click:{' '}
-                              <b>{p.clickCount || 0}</b>
+                              Giá bán: <b>{p.price.toLocaleString('vi-VN')}đ</b> • Đã bán:{' '}
+                              <b>{p.soldCount || 0}</b> • Lượt xem: <b>{p.clickCount || 0}</b>
                               {p.isFeatured && p.featuredUntil && (
                                 <>
                                   {' '}
@@ -2220,7 +3255,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           )}
 
           {/* ==================================================================
-              PHÂN KHU 5: HỒ SƠ & CÀI ĐẶT GIAN HÀNG ('profile')
+              PHÂN KHU 6: HỒ SƠ & ĐỊA CHỈ KHO HÀNG ('profile')
               ================================================================== */}
           {activeTab === 'profile' && (
             <div className="mp-tab-panel">
@@ -2228,8 +3263,8 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                 <form onSubmit={handleUpdateProfile} className="mp-panel-card">
                   <div className="mp-panel-header">
                     <div>
-                      <h2>⚙️ Cập Nhật Thông Tin Gian Hàng</h2>
-                      <p>Thông tin này được hiển thị công khai trên các sản phẩm của Shop</p>
+                      <h2>⚙️ Cập Nhật Thông Tin Gian Hàng & Kho Lấy Hàng</h2>
+                      <p>Tỉnh/Thành phố kho lấy hàng được dùng để tính phí ship Nội tỉnh & Hỏa tốc 2H</p>
                     </div>
                   </div>
 
@@ -2239,28 +3274,59 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       <input
                         value={profShopName}
                         onChange={(e) => setProfShopName(e.target.value)}
-                        placeholder="VD: Tiệm Quà & Nến Thơm Mộc"
+                        placeholder="VD: Tiệm Gốm Mộc"
                         required
                       />
                     </label>
 
+                    <div className="mp-field-row">
+                      <label className="mp-field">
+                        <span>Tỉnh / Thành phố Kho lấy hàng *</span>
+                        <select
+                          value={profProvince}
+                          onChange={(e) => setProfProvince(e.target.value)}
+                          style={{
+                            padding: '11px 14px',
+                            borderRadius: 10,
+                            border: '1px solid #cbd5e1',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {PROVINCE_OPTIONS.map((prov) => (
+                            <option key={prov} value={prov}>
+                              {prov}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="mp-field">
+                        <span>Số điện thoại Hotline / Shipper liên hệ *</span>
+                        <input
+                          value={profPhone}
+                          onChange={(e) => setProfPhone(e.target.value)}
+                          placeholder="0909123456"
+                          required
+                        />
+                      </label>
+                    </div>
+
                     <label className="mp-field">
-                      <span>Email liên hệ & Nhận thông báo từ hệ thống *</span>
+                      <span>Địa chỉ kho lấy hàng chi tiết *</span>
+                      <input
+                        value={profAddress}
+                        onChange={(e) => setProfAddress(e.target.value)}
+                        placeholder="Số nhà, đường, phường/xã, quận/huyện..."
+                      />
+                    </label>
+
+                    <label className="mp-field">
+                      <span>Email liên hệ & Nhận thông báo đơn hàng mới *</span>
                       <input
                         type="email"
                         value={profEmail}
                         onChange={(e) => setProfEmail(e.target.value)}
                         placeholder="shop@giftfinder.vn"
-                        required
-                      />
-                    </label>
-
-                    <label className="mp-field">
-                      <span>Số điện thoại Hotline / Zalo CSKH *</span>
-                      <input
-                        value={profPhone}
-                        onChange={(e) => setProfPhone(e.target.value)}
-                        placeholder="0909123456"
                         required
                       />
                     </label>
@@ -2280,7 +3346,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                         className="mp-primary-submit-btn"
                         disabled={savingProfile}
                       >
-                        {savingProfile ? 'Đang lưu hồ sơ...' : '💾 Lưu Thay Đổi Hồ Sơ'}
+                        {savingProfile ? 'Đang lưu hồ sơ...' : '💾 Lưu Thay Đổi Hồ Sơ & Kho Hàng'}
                       </button>
                     </div>
                   </div>
@@ -2289,8 +3355,8 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                 <section className="mp-panel-card">
                   <div className="mp-panel-header">
                     <div>
-                      <h2>🛡️ Chứng Nhận Đối Tác</h2>
-                      <p>Thông tin pháp lý & bảo mật tài khoản</p>
+                      <h2>🛡️ Chứng Nhận Đối Tác & Chính Sách Vận Chuyển</h2>
+                      <p>Thông tin định danh và cơ chế tính phí giao quà tự động</p>
                     </div>
                   </div>
 
@@ -2302,22 +3368,22 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
                       </strong>
                     </div>
                     <div className="mp-qp-item">
-                      <span>Trạng thái xác minh:</span>
-                      <strong style={{ color: isVerifiedShop ? '#059669' : '#d97706' }}>
-                        {isVerifiedShop ? '✓ Đã xác minh chính thức' : '⏳ Đang chờ xác minh'}
+                      <span>Tỉnh / Thành phố kho xuất hàng:</span>
+                      <strong style={{ color: '#e11d48' }}>📍 {profProvince}</strong>
+                    </div>
+                    <div className="mp-qp-item">
+                      <span>Khách đặt cùng tỉnh ({profProvince}):</span>
+                      <strong style={{ color: '#059669' }}>
+                        Mở Giao Tiêu Chuẩn (25k) & Hỏa Tốc 2H (50k)
                       </strong>
                     </div>
                     <div className="mp-qp-item">
-                      <span>Ngày tham gia hệ thống:</span>
-                      <strong>
-                        {profile?.createdAt
-                          ? new Date(profile.createdAt).toLocaleDateString('vi-VN')
-                          : 'Hôm nay'}
-                      </strong>
+                      <span>Khách đặt khác tỉnh (Liên tỉnh):</span>
+                      <strong>Giao Tiêu Chuẩn Liên Tỉnh (35k) · Khóa Hỏa Tốc</strong>
                     </div>
                     <div className="mp-qp-item">
-                      <span>Vai trò tài khoản (Role):</span>
-                      <strong>Merchant (Đối tác bán hàng)</strong>
+                      <span>Miễn phí vận chuyển (Freeship):</span>
+                      <strong>Đơn quà tiêu chuẩn từ 500.000đ trở lên</strong>
                     </div>
                   </div>
                 </section>
@@ -2326,6 +3392,164 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           )}
         </main>
       </div>
+
+      {/* ======================================================================
+          MODAL NHẬP MÃ VẬN ĐƠN KHI BÀN GIAO CHO SHIPPER
+          ====================================================================== */}
+      {shippingModalOrder && (
+        <div className="modal-layer" onMouseDown={() => setShippingModalOrder(null)}>
+          <div
+            className="modal-card mp-vnpay-modal"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-heading">
+              <div className="modal-title-icon">🚚</div>
+              <div>
+                <h2>Bàn Giao Đơn Hàng Cho Shipper</h2>
+                <p>Mã đơn hàng: #{shippingModalOrder.orderCode}</p>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setShippingModalOrder(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="mp-tx-summary-box" style={{ marginBottom: 16 }}>
+                <div className="mp-tx-row">
+                  <span>Người nhận quà:</span>
+                  <strong>
+                    {shippingModalOrder.receiverName} ({shippingModalOrder.receiverPhone})
+                  </strong>
+                </div>
+                <div className="mp-tx-row">
+                  <span>Địa chỉ giao:</span>
+                  <strong>
+                    {shippingModalOrder.receiverDistrict}, {shippingModalOrder.receiverProvince}
+                  </strong>
+                </div>
+                <div className="mp-tx-row total">
+                  <span>Tiền Shipper thu hộ (COD):</span>
+                  <strong>{shippingModalOrder.totalAmount.toLocaleString('vi-VN')} VNĐ</strong>
+                </div>
+              </div>
+
+              <div className="mp-form-stack">
+                <label className="mp-field">
+                  <span>Chọn đơn vị vận chuyển *</span>
+                  <select
+                    value={selectedCarrier}
+                    onChange={(e) => setSelectedCarrier(e.target.value)}
+                    style={{
+                      padding: '11px 14px',
+                      borderRadius: 10,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {CARRIER_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="mp-field">
+                  <span>Mã vận đơn bưu cục (Tracking Code) *</span>
+                  <input
+                    value={trackingCodeInput}
+                    onChange={(e) => setTrackingCodeInput(e.target.value)}
+                    placeholder="VD: GHN-849201"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="mp-primary-submit-btn"
+                  disabled={updatingOrderId === shippingModalOrder.id}
+                  onClick={() =>
+                    handleQuickUpdateOrderStatus(
+                      shippingModalOrder,
+                      'Shipping',
+                      selectedCarrier,
+                      trackingCodeInput
+                    )
+                  }
+                >
+                  {updatingOrderId === shippingModalOrder.id
+                    ? 'Đang cập nhật...'
+                    : '🚀 Xác Nhận Đã Giao Cho Shipper'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================
+          MODAL MÃ QR CHIA SẺ GIAN HÀNG
+          ====================================================================== */}
+      {showQrModal && (
+        <div className="modal-layer" onMouseDown={() => setShowQrModal(false)}>
+          <div
+            className="modal-card mp-vnpay-modal"
+            style={{ maxWidth: 420, textAlign: 'center' }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-heading">
+              <div className="modal-title-icon">📱</div>
+              <div style={{ textAlign: 'left' }}>
+                <h2>Mã QR Gian Hàng {activeShopName}</h2>
+                <p>In lên thiệp cảm ơn hoặc gửi cho khách quét đặt quà</p>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setShowQrModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                  shopShareUrl
+                )}`}
+                alt="QR Shop"
+                style={{
+                  width: 220,
+                  height: 220,
+                  margin: '10px auto 16px',
+                  borderRadius: 16,
+                  border: '1px solid #e2e8f0',
+                  padding: 12,
+                  background: '#fff',
+                }}
+              />
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 14 }}>
+                {shopShareUrl}
+              </div>
+              <button
+                type="button"
+                className="mp-primary-submit-btn"
+                style={{ width: '100%' }}
+                onClick={() => {
+                  navigator.clipboard?.writeText(shopShareUrl);
+                  onNotify('📋 Đã sao chép link Gian hàng!');
+                  setShowQrModal(false);
+                }}
+              >
+                📋 Sao chép Link & Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ======================================================================
           MODAL THANH TOÁN GÓI FEATURED VNPAY & GIẢ LẬP KÍCH HOẠT TỨC THÌ
@@ -2406,7 +3630,7 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
           </div>
         </div>
       )}
-      {/* Nút 3 gạch mở lại thanh bên khi đang cuộn trang và thanh bên đóng */}
+
       {!sidebarOpen && (
         <button
           type="button"
@@ -2426,4 +3650,3 @@ export const MerchantPortal: React.FC<MerchantPortalProps> = ({ go, onNotify }) 
     </div>
   );
 };
-

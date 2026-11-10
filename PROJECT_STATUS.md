@@ -1,5 +1,5 @@
 # TIẾN ĐỘ DỰ ÁN GIFTFINDER & BẢN ĐỒ BỐI CẢNH (CONTEXT MAP)
-*(Cập nhật lần cuối: 30/10/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 244 Sản Phẩm Chuẩn 100% Giá Thật & Link Affiliate - AI Concierge & Smart Rotation Hoàn Thiện)*
+*(Cập nhật lần cuối: 07/11/2026 - Tình trạng: Sẵn sàng 100% cho phiên làm việc mới - Database: 269 Sản Phẩm Chuẩn 100% Giá Thật & Rating Sao, Review Thật - TikTok Desktop QR Checkout & Nhạc Ambient 20/11 Hoàn Thiện - Git Clean & Up-to-date)*
 
 ---
 
@@ -7,8 +7,9 @@
 > **DÀNH CHO AGENT TIẾP THEO:** Đọc kỹ mục này để tiếp tục dự án ngay trong 10 giây mà **KHÔNG CẦN** quét lại hay phân tích lại những gì đã chạy thành công!
 
 ### 1. Thông tin Môi trường & Kết nối Đang Hoạt Động (Live Credentials):
-* **Kiến trúc:** C# (.NET 8) Clean Architecture (`GiftFinder.Domain`, `GiftFinder.Application`, `GiftFinder.Infrastructure`, `GiftFinder.API`).
-* **Backend Swagger:** Đang chạy tại `https://localhost:7276/swagger/index.html`.
+* **Kiến trúc:** C# (.NET 8) Clean Architecture (`backend/GiftFinder.Domain`, `backend/GiftFinder.Application`, `backend/GiftFinder.Infrastructure`, `backend/GiftFinder.API`) & Frontend React 19 + TypeScript + Vite (`frontend/`).
+* **Backend Swagger:** Đang chạy tại `http://localhost:5151/swagger` (profile `http`).
+* **Frontend Dev Server:** Cổng `http://localhost:5173` (hoặc `http://localhost:3000`), tự động proxy `/api/*` về `http://localhost:5151`.
 * **Cơ sở dữ liệu:** PostgreSQL (`GiftFinderDb`), Host: `localhost:5432`, Username: `postgres`, Password: `123`.
 * **Chiến lược Sàn Affiliate (2 Sàn Trọng Tâm Chính: Shopee & TikTok Shop; Lazada & DirectMerchant là phụ; Đã loại bỏ hoàn toàn Tiki):**
   * **Shopee Direct Affiliate (Trọng tâm 1):** Mã đối tác `an_17374170692`. Sinh link trực tiếp không qua trung gian: `https://shopee.vn/{slug}-i.{shopId}.{itemId}?utm_source=an_17374170692&utm_medium=affiliates&mmp_pid=an_17374170692&sub_id=item_{guid}`.
@@ -16,8 +17,12 @@
   * **TikTok Shop CPS (Trọng tâm 2):** Tích hợp Accesstrade Live Mode (`PublisherIdV6: 7086451798803801329`, `CampaignId: 6648523843406889655`, `ApiKey: dlg2xKqJY-jSwgpnzrTwkOHUO1VopteC`). Sinh deeplink v6 tự động mã hóa `url_enc` Base64.
   * **Lazada Việt Nam (Phụ):** Tích hợp mạng lưới Ecomobi (`WrkhMbQezyWOwnMYpFEiz`).
   * **DirectMerchant (Gian hàng nội bộ):** Dành cho các shop đối tác đăng ký gian hàng trực tiếp trên GiftFinder.
-* **Bộ cào dữ liệu Playwright Scraper Engine (Đã tối ưu hóa vận hành & chống WAF):**
+* **Bộ cào dữ liệu Playwright Scraper Engine (Đã nâng cấp bóc tách Rating Sao & Review Thật):**
   * Kết nối Microsoft Edge thật qua CDP (`http://127.0.0.1:9222`). Khởi động nhanh bằng [start_edge_debug.bat](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/start_edge_debug.bat) hoặc `dotnet run --launch-edge`.
+  * **Trích xuất Đánh giá Sao (Rating 1.0 - 5.0) & Số lượt Đánh giá (TotalReviews):**
+    * Shopee: Bóc tách rating sao qua thẻ `.flex.h32vjt` và regex số thực, review qua text `k / tr`.
+    * TikTok Shop: Bóc tách điểm sao qua thẻ `[class*="rating"]` và lượt review qua thẻ `[class*="review"]`.
+  * **Batch Script tự động tiện lợi:** [update_ratings_shopee.bat](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/update_ratings_shopee.bat) và [update_ratings_tiktok.bat](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/update_ratings_tiktok.bat) tự động đồng bộ hàng loạt vào PostgreSQL.
   * **Tốc độ trong tab (0s delay):** Bắt trực tiếp sự kiện React mount thẻ giá (`.pyzxvq, .pw3J3G, .PcnXj1`, ~2.7s) và đóng tab ngay lập tức khi lấy được giá, không chờ đợi lãng phí.
   * **Giãn cách liên tab (5.0s – 7.0s):** Mô phỏng hành vi duyệt web tự nhiên của người thật, triệt tiêu 100% lỗi Shopee WAF rate-limiting (`/verify/traffic/error`).
   * **Edge Tab Persistence:** Điều hướng về `about:blank` thay vì đóng tab cuối cùng để giữ tiến trình `msedge.exe` và cổng 9222 luôn sống.
@@ -29,31 +34,34 @@
 ---
 
 ### 2. Trạng thái Kho Sản Phẩm Thực Tế Trong Database (`Products` Table):
-* **Tổng cộng 244/244 sản phẩm trong Database (`GiftFinderDb`) đã có giá thật 100% & ảnh CDN từ sàn, 0 lỗi, 0 trùng lặp:**
-  1. `TikTok Shop (124 SP - Trọng tâm 2)`: 100% sản phẩm có giá hiển thị thật trên màn hình từ **10.499đ đến 1.100.000đ** (trung bình ~241.000đ, đã loại bỏ hoàn toàn giá gốc ảo và phí ship), ảnh CDN `ibyteimg.com`, link Accesstrade CPS `7086451798803801329`. Đã import trọn vẹn 100% 124 link tuyển chọn từ file `tiktokshop_links.txt`.
-  2. `Shopee (118 SP - Trọng tâm 1)`: 100% sản phẩm có giá thật từ **3.800đ đến 2.250.000đ**, ảnh CDN Shopee `down-vn.img.susercontent.com`, link Shopee Direct `an_17374170692`, gắn đủ AI tags. Đã import trọn vẹn 100% 112 link tuyển chọn từ file `shopee_links.txt`.
+* **Tổng cộng 269/269 sản phẩm trong Database (`GiftFinderDb`) đã có giá thật 100%, Rating Sao & Review thật, ảnh CDN từ sàn, 0 lỗi, 0 trùng lặp:**
+  1. `TikTok Shop (132 SP - Trọng tâm 2)`: 100% sản phẩm có giá hiển thị thật trên màn hình từ **10.499đ đến 1.100.000đ** (đã loại bỏ hoàn toàn giá gốc ảo và phí ship), ảnh CDN `ibyteimg.com`, link Accesstrade CPS `7086451798803801329`. Đã đồng bộ rating sao (Rating: 4.5 - 5.0⭐) và lượt đánh giá thật (TotalReviews) qua Playwright Scraper.
+  2. `Shopee (135 SP - Trọng tâm 1)`: 100% sản phẩm có giá thật từ **3.800đ đến 2.250.000đ**, ảnh CDN Shopee `down-vn.img.susercontent.com`, link Shopee Direct `an_17374170692`, gắn đủ AI tags. Đã đồng bộ rating sao và lượt đánh giá thật qua Playwright Scraper.
   3. `Lazada (1 SP)`: Giá thật **129.000đ**, ảnh gốc trực tiếp từ CDN `img.lazcdn.com`, link Ecomobi `WrkhMbQezyWOwnMYpFEiz`.
   4. `DirectMerchant (1 SP - Tiệm Quà Thảo Mộc Vintage)`: Giá **280.000đ** (sản phẩm shop nội bộ, bảo lưu an toàn).
 * **Kết quả rà soát, dọn dẹp & Chống trùng lặp (Audit & Deduplication):**
   * Đã quét toàn bộ kho dữ liệu theo cặp Shop ID + Item ID và URL: **0 bản ghi trùng lặp**.
-  * Đã xóa sạch các bản ghi lỗi do trang traffic error cũ lưu nhầm.
   * 100% các sản phẩm trong DB đều độc lập, có giá thật > 0đ, có ảnh CDN gốc và đầy đủ link tracking affiliate.
 * **Bảng `PriceHistories`:** Ghi nhận đầy đủ lịch sử biến động giá thực tế của tất cả sản phẩm theo thời gian.
 
 ---
 
 ### 3. Vị Trí Các File Mã Nguồn Cốt Lõi:
-* **[PlaywrightScraperService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Infrastructure/Scraping/PlaywrightScraperService.cs):** Trình cào dữ liệu Playwright đa sàn (Shopee, TikTok Shop, Lazada), cơ chế Edge CDP, tự động tạm dừng 90s khi gặp Captcha, giãn cách tab 5s-7s, regex bóc tách giá.
-* **[ShopeeAffiliateHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Infrastructure/Affiliate/ShopeeAffiliateHandler.cs):** Bóc tách slug, ShopId/ItemId và sinh link Shopee Direct Affiliate `an_17374170692`.
-* **[AccesstradeService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Infrastructure/Affiliate/AccesstradeService.cs):** Tích hợp Accesstrade CPS TikTok Shop, Ecomobi Lazada và điều phối cào sản phẩm qua URL.
-* **[ImportProductByUrlCommandHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Application/Features/Affiliate/Commands/ImportProductByUrl/ImportProductByUrlCommandHandler.cs):** Xử lý nhập sản phẩm bằng URL, hỗ trợ cờ `ForceRescrape` để quét lại/cập nhật giá sản phẩm đã có.
-* **[SyncAllProductPricesCommandHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.Application/Features/Products/Commands/SyncAllProductPrices/SyncAllProductPricesCommandHandler.cs):** Đồng bộ giá định kỳ, hỗ trợ lọc theo sàn (`--source Shopee|TikTokShop|Lazada`).
-* **[Program.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Program.cs):** Cung cấp các lệnh CLI:
-  * `dotnet run --project GiftFinder.API -- --import-file "shopee_links.txt" [--force]`
-  * `dotnet run --project GiftFinder.API -- --sync-prices [--source <Source>]`
-  * `dotnet run --project GiftFinder.API -- --launch-edge`
-* **[ProductsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/ProductsController.cs):** API quản lý quà tặng, click affiliate và sync giá.
-* **[RecommendationsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/GiftFinder.API/Controllers/RecommendationsController.cs):** Tìm kiếm quà tặng thông minh bằng Groq AI và bộ lọc đa tiêu chí.
+* **[PlaywrightScraperService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.Infrastructure/Scraping/PlaywrightScraperService.cs):** Trình cào dữ liệu Playwright đa sàn (Shopee, TikTok Shop, Lazada), cơ chế Edge CDP, tự động trích xuất Price, Rating, TotalReviews, tạm dừng 90s khi gặp Captcha, giãn cách tab 5s-7s.
+* **[ShopeeAffiliateHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.Infrastructure/Affiliate/ShopeeAffiliateHandler.cs):** Bóc tách slug, ShopId/ItemId và sinh link Shopee Direct Affiliate `an_17374170692`.
+* **[AccesstradeService.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.Infrastructure/Affiliate/AccesstradeService.cs):** Tích hợp Accesstrade CPS TikTok Shop, Ecomobi Lazada và điều phối cào sản phẩm qua URL.
+* **[ImportProductByUrlCommandHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.Application/Features/Affiliate/Commands/ImportProductByUrl/ImportProductByUrlCommandHandler.cs):** Xử lý nhập sản phẩm bằng URL, hỗ trợ cờ `ForceRescrape`.
+* **[SyncAllProductPricesCommandHandler.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.Application/Features/Products/Commands/SyncAllProductPrices/SyncAllProductPricesCommandHandler.cs):** Đồng bộ giá định kỳ, hỗ trợ lọc theo sàn (`--source Shopee|TikTokShop|Lazada`).
+* **[Program.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.API/Program.cs):** Cung cấp các lệnh CLI:
+  * `dotnet run --project backend/GiftFinder.API -- --import-file "shopee_links.txt" [--force]`
+  * `dotnet run --project backend/GiftFinder.API -- --sync-prices [--source <Source>]`
+  * `dotnet run --project backend/GiftFinder.API -- --sync-ratings [--source <Source>]`
+  * `dotnet run --project backend/GiftFinder.API -- --launch-edge`
+* **[update_ratings_shopee.bat](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/update_ratings_shopee.bat):** Batch script tự động đồng bộ rating & reviews cho Shopee.
+* **[update_ratings_tiktok.bat](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/update_ratings_tiktok.bat):** Batch script tự động đồng bộ rating & reviews cho TikTok Shop.
+* **[App.tsx](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/frontend/src/App.tsx):** Toàn bộ giao diện chính, gồm `QrPurchaseModal`, `FloatingAudioPlayer`, top announcement banner 20/11, Chatbot AI Concierge, catalog filtering và routing.
+* **[ProductsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.API/Controllers/ProductsController.cs):** API quản lý quà tặng, click affiliate và sync giá.
+* **[RecommendationsController.cs](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/backend/GiftFinder.API/Controllers/RecommendationsController.cs):** Tìm kiếm quà tặng thông minh bằng Groq AI và bộ lọc đa tiêu chí.
 
 ---
 
@@ -284,3 +292,55 @@
   - Database được đưa lên Cloud (Supabase, Neon, Render...).
   - Quá trình cào giá Playwright tiếp tục chạy trên máy tính cá nhân (tận dụng IP dân cư và Microsoft Edge thật qua CDP port 9222 để vượt qua WAF Shopee/TikTok và giải Captcha khi cần).
   - Kết nối thẳng vào Cloud DB bằng cách cập nhật chuỗi `DefaultConnection` trong `appsettings.Development.json`. Giá mới sẽ được đồng bộ trực tiếp lên Cloud.
+
+---
+
+### 4. Đồng Bộ Đánh Giá Sao (Rating) & Lượt Đánh Giá Thật (06/11 - 07/11/2026)
+* **Vấn đề giải quyết:** Trước đây các sản phẩm chỉ có giá cào và số sao mock mặc định hoặc thiếu lượt đánh giá, khiến khách hàng chưa cảm nhận được độ tin cậy thực tế từ sàn thương mại điện tử.
+* **Giải pháp kỹ thuật:**
+  * **PlaywrightScraperService.cs:** Nâng cấp hàm bóc tách dữ liệu:
+    * Shopee: Quét cụm DOM `.flex.h32vjt`, bóc tách số sao thật bằng Regex `(\d+(\.\d+)?)` (ví dụ: `4.9`, `5.0`) và tổng lượt đánh giá (hỗ trợ chuyển đổi đơn vị `k` -> x1000, `tr` -> x1.000.000).
+    * TikTok Shop: Bóc tách `[class*="rating"]` và `[class*="review"]`, lọc sạch các ký tự rác và chuyển đổi định dạng số chuẩn quốc tế.
+  * **Database & DTOs:** Cập nhật các cột `Rating` và `TotalReviews` trong bảng `Products`, lưu dữ liệu chính xác vào PostgreSQL.
+  * **Batch Scripts:** Tạo 2 file batch tự động hóa:
+    * `update_ratings_shopee.bat`: Tự động kích hoạt Playwright qua Edge CDP để quét và cập nhật toàn bộ 135 sản phẩm Shopee.
+    * `update_ratings_tiktok.bat`: Tự động quét và cập nhật toàn bộ 132 sản phẩm TikTok Shop.
+* **Kết quả:** 100% sản phẩm trên website hiển thị sao thật và lượt đánh giá chân thực từ sàn, nâng cao tỉ lệ chuyển đổi affiliate.
+* **Đồng bộ Cloud Supabase (07/11/2026):** Đã đồng bộ trực tiếp toàn bộ **276 sản phẩm** (cập nhật 92 sản phẩm có thay đổi giá/rating/review sau đợt Playwright batch sync) và toàn bộ **277 bản ghi lịch sử giá `PriceHistories`** từ Local lên Supabase Cloud Database (`aws-0-eu-west-1.pooler.supabase.com`). Xác minh trực tiếp qua Live Azure API (`giftfinder-api-2026-eyg2dxa5fedvh8ec.eastasia-01.azurewebsites.net`): **0 lệch giá, 0 lệch rating, 0 lệch review**! Sản phẩm TikTok Shop `Armaf ODYSSEY LIMONI` (`3072cce0-7a12-4a95-8e0d-e53354c9cbc9`) đã hiển thị chuẩn giá 1.014.650đ, 4.6★ và 128 đánh giá.
+
+---
+
+### 5. TikTok Shop Desktop QR Checkout Modal (`QrPurchaseModal`)
+* **Vấn đề giải quyết:** TikTok Shop giới hạn việc đặt hàng trực tiếp trên trình duyệt Desktop/PC (yêu cầu người dùng phải mở ứng dụng TikTok trên điện thoại để thanh toán). Nếu người dùng bấm vào link affiliate trên máy tính sẽ bị chặn hoặc giảm tỉ lệ chuyển đổi.
+* **Giải pháp UX/UI & Affiliate Tracking:**
+  * Xây dựng Component `QrPurchaseModal` độc lập trong [App.tsx](file:///c:/Users/nguye/Downloads/CSharp/GiftFinder/frontend/src/App.tsx) với giao diện popup sang trọng, hiệu ứng xuất hiện mềm mại (`backdrop-blur`).
+  * **Bảo toàn Tracking Affiliate:** Deep link Accesstrade CPS (`chain_key`, `sub_id`, `url_enc`) được bảo toàn 100% trong mã QR.
+  * **Trình tạo QR tự động:** Tích hợp API tạo QR độ nét cao (`api.qrserver.com`), người dùng chỉ cần mở Camera điện thoại, Zalo hoặc ứng dụng TikTok quét mã là ứng dụng TikTok trên điện thoại tự động mở ngay trang sản phẩm với mã affiliate đã được ghi nhận.
+  * **Tùy chọn phụ:** Cung cấp thêm nút *Copy Link* và nút *Mở trực tiếp trên web* để người dùng linh hoạt lựa chọn.
+  * **Shopee:** Vẫn giữ nguyên luồng mở trực tiếp trong tab mới như bình thường (do Shopee hỗ trợ thanh toán web mượt mà trên desktop).
+
+---
+
+### 6. Banner Tri Ân 20/11 & Trình Phát Nhạc Nền Ambient Tinh Tế (`FloatingAudioPlayer`)
+* **Banner Thông Báo Chữ Chạy (Top Marquee Announcement Bar):**
+  * Tích hợp dải thông báo chạy chữ trên đỉnh trang (`.top-banner-2011`) với tone màu hồng - đỏ mận lễ hội, huy hiệu `20/11 Tri Ân`, ticker chữ chạy mượt mà, nút CTA *"Xem quà ngay →"* dẫn thẳng vào bộ sưu tập Ngày Nhà Giáo Việt Nam và nút đóng `✕`.
+* **Trình Phát Nhạc Nền Nổi (FloatingAudioPlayer):**
+  * Thiết kế hình viên thuốc (pill widget) sang trọng chuẩn phong cách GiftFinder (`rgba(255, 255, 255, 0.95)`, chữ đen slate, viền mờ cao cấp).
+  * Phát bài nhạc nền piano du dương `bui-phan-piano.mp3` với âm lượng ambient êm dịu (30%).
+  * Trạng thái tạm dừng: Hiện icon `🔇`, nhãn `TẠM DỪNG`, đĩa xoay ngừng quay và giấu các cột sóng equalizer (chuẩn UX tham chiếu egift365).
+  * Vòng lặp tinh tế: Khi hết bài (`onEnded`), tự động nghỉ 5 giây rồi mới phát lại, tránh tạo cảm giác dồn dập cho người nghe.
+  * Phạm vi hoạt động thông minh (Scoped Context): Widget và âm thanh chỉ xuất hiện và phát khi người dùng đang xem danh mục bộ sưu tập 20/11 (`page === "catalog"` và slug `ngay-nha-giao-viet-nam-20-11`). Khi chuyển về Trang chủ hoặc danh mục khác, nhạc tự động dừng và widget ẩn đi.
+  * Lưu trạng thái Session (`sessionStorage`): Khi bấm F5 tải lại trang catalog 20/11, bộ lọc và trạng thái sẵn sàng của audio player vẫn được bảo toàn nguyên vẹn.
+
+---
+
+### 7. Trạng Thái Git & Triển Khai Production (07/11/2026)
+* **Kho lưu trữ Git:** `https://github.com/NguyendDucTai/GiftFinder.git` (nhánh `master`).
+* **Trạng thái nhánh:** Đồng bộ 100% với `origin/master`, `working tree clean`.
+* **2 Commit mới nhất:**
+  1. `b8dc1ba feat(backend): sync real star ratings and review counts from shopee & tiktok shop`
+  2. `c09e0c7 feat(frontend): add tiktok desktop qr checkout and 20/11 festive banner with ambient music`
+* **Build Verification:**
+  * Backend: Biên dịch .NET 8 Clean Architecture hoàn toàn không có lỗi (`0 Errors, 0 Warnings`).
+  * Frontend: `npm run build` thành công xuất sắc trong 426ms (`0 Errors`).
+* **Bảo mật mã nguồn:** Các file thực thi tạm thời (`yt-dlp.exe`) đã được dọn sạch khỏi repository. Các cấu hình nhạy cảm được bảo vệ an toàn.

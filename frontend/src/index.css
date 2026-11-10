@@ -7353,51 +7353,139 @@ footer {
 }
 
 /* ========================================================
-   MERCHANT SELLER CENTER - FULL HEIGHT FIXED SIDEBAR LAYOUT
+   EGIFT DESIGN SYSTEM TOKENS FOR MERCHANT SELLER CENTER
    ======================================================== */
 .mp-portal-wrapper {
-  min-height: calc(100vh - 72px);
-  background: #f8fafc;
+  --eg-text-primary: #552d22;
+  --eg-text-secondary: #6b5b54;
+  --eg-text-tertiary: #8c7a72;
+  --eg-text-inverse: #95442c;
+  --eg-accent: #95442c;
+  --eg-accent-hover: #7e3621;
+  --eg-surface-base: #ffffff;
+  --eg-surface-muted: #f8f5f0;
+  --eg-surface-raised: #ffffff;
+  --eg-surface-strong: #fdf8f0;
+  --eg-border: #eedec7;
+  --eg-border-hover: #dfc8a8;
+  --eg-focus-ring: rgba(149, 68, 44, 0.4);
+
+  min-height: 100vh;
+  background: var(--eg-surface-muted);
+  font-family: 'Noto Sans', 'Noto Sans Fallback', ui-sans-serif, system-ui, sans-serif;
+  color: var(--eg-text-primary);
   padding: 0;
   margin: 0;
   width: 100%;
   position: relative;
 }
 
+/* DEDICATED SELLER NAVBAR (TOP HEADER RIÊNG CHO MERCHANT) */
+.mp-seller-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--eg-surface-strong);
+  border-bottom: 1px solid var(--eg-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 50;
+  box-shadow: 0 1px 4px rgba(85, 45, 34, 0.04);
+}
+
+.mp-seller-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mp-brand-logo-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mp-brand-logo-text {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--eg-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.mp-seller-tag {
+  background: var(--eg-accent);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mp-seller-current-shop-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #ffffff;
+  border: 1px solid var(--eg-border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--eg-text-primary);
+}
+
+.mp-seller-current-shop-pill .shop-name {
+  color: var(--eg-accent);
+}
+
+.mp-seller-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .mp-portal-shell {
   width: 100%;
-  min-height: calc(100vh - 72px);
-  margin: 0;
+  min-height: calc(100vh - 64px);
+  margin-top: 64px;
   padding: 0;
   display: flex;
   align-items: stretch;
   position: relative;
 }
 
-/* LEFT SIDEBAR - Dài bằng cả màn hình (Full viewport height), Cố định 100% không trôi */
+/* LEFT SIDEBAR - Cố định dưới Top Navbar 64px */
 .mp-sidebar {
   width: 275px;
   flex-shrink: 0;
   position: fixed;
-  top: 72px;
+  top: 64px;
   bottom: 0;
   left: 0;
-  height: calc(100vh - 72px);
+  height: calc(100vh - 64px);
   background: #ffffff;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid var(--eg-border);
   border-left: none;
   border-top: none;
   border-bottom: none;
   border-radius: 0 !important;
-  box-shadow: 2px 0 10px rgba(15, 23, 42, 0.03);
-  padding: 22px 18px 24px 20px;
+  box-shadow: 2px 0 10px rgba(85, 45, 34, 0.03);
+  padding: 20px 16px 24px 18px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
   z-index: 35;
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--eg-border) transparent;
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -7554,10 +7642,10 @@ footer {
 }
 
 .mp-nav-item.active {
-  background: #fff1f2;
-  color: var(--rose);
+  background: var(--eg-surface-strong);
+  color: var(--eg-accent);
   font-weight: 700;
-  box-shadow: inset 3px 0 0 var(--rose);
+  box-shadow: inset 3px 0 0 var(--eg-accent);
 }
 
 .mp-nav-icon {
@@ -7579,7 +7667,7 @@ footer {
 }
 
 .mp-nav-item.active .mp-nav-count {
-  background: var(--rose);
+  background: var(--eg-accent);
   color: #ffffff;
 }
 
@@ -7805,9 +7893,9 @@ footer {
 }
 
 .mp-page-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--eg-text-primary);
   margin: 0;
   letter-spacing: -0.02em;
 }
@@ -7819,29 +7907,29 @@ footer {
 }
 
 .mp-btn-primary {
-  padding: 10px 18px;
+  padding: 9px 18px;
   border: 0;
-  border-radius: 11px;
-  background: var(--rose);
+  border-radius: 8px;
+  background: var(--eg-accent);
   color: #ffffff;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+  box-shadow: 0 2px 8px rgba(149, 68, 44, 0.25);
 }
 
 .mp-btn-primary:hover:not(:disabled) {
-  background: #be123c;
+  background: var(--eg-accent-hover);
   transform: translateY(-1px);
 }
 
 .mp-btn-outline {
-  padding: 10px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 11px;
+  padding: 9px 16px;
+  border: 1px solid var(--eg-border);
+  border-radius: 8px;
   background: #ffffff;
-  color: #334155;
+  color: var(--eg-text-primary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -7849,8 +7937,8 @@ footer {
 }
 
 .mp-btn-outline:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
+  background: var(--eg-surface-strong);
+  border-color: var(--eg-border-hover);
 }
 
 .mp-btn-outline.danger {
@@ -7862,31 +7950,110 @@ footer {
   background: #fef2f2;
 }
 
-/* KPI Grid (6 Cards) */
-.mp-kpi-grid {
+/* ========================================================
+   TO-DO LIST (VIỆC CẦN XỬ LÝ HÔM NAY) - THEO CHUẨN EGIFT
+   ======================================================== */
+.mp-todo-section {
+  background: #ffffff;
+  border: 1px solid var(--eg-border);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 22px;
+  box-shadow: 0 1px 4px rgba(85, 45, 34, 0.03);
+}
+
+.mp-todo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--eg-surface-muted);
+}
+
+.mp-todo-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.mp-todo-item {
+  background: var(--eg-surface-strong);
+  border: 1px solid var(--eg-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.mp-todo-item:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+  border-color: var(--eg-accent);
+  box-shadow: 0 4px 12px rgba(149, 68, 44, 0.1);
+}
+
+.mp-todo-item.urgent {
+  border-color: #fca5a5;
+  background: #fff8f8;
+}
+
+.mp-todo-item.urgent:hover {
+  background: #ffffff;
+  border-color: #ef4444;
+}
+
+.mp-todo-num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.mp-todo-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--eg-text-primary);
+  margin-bottom: 2px;
+}
+
+.mp-todo-sub {
+  font-size: 11.5px;
+  color: var(--eg-text-secondary);
+}
+
+/* ========================================================
+   4 KPI CARDS GRID - CHỈ SỐ KINH DOANH CỐT LÕI
+   ======================================================== */
+.mp-kpi-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.mp-kpi-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
   margin-bottom: 22px;
 }
 
 .mp-kpi-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 18px 20px;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.02);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.mp-kpi-card.clickable {
+  border: 1px solid var(--eg-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(85, 45, 34, 0.02);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.mp-kpi-card.clickable:hover {
+.mp-kpi-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
-  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(85, 45, 34, 0.08);
+  border-color: var(--eg-border-hover);
 }
 
 .mp-kpi-top {
@@ -7897,71 +8064,40 @@ footer {
 }
 
 .mp-kpi-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   font-size: 18px;
-  font-weight: 800;
-  background: #fff1f2;
-  color: var(--rose);
 }
 
-.mp-kpi-icon.green,
-.mp-kpi-icon.emerald {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.mp-kpi-icon.amber {
-  background: #fffbeb;
-  color: #d97706;
-}
-
-.mp-kpi-icon.danger {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.mp-kpi-icon.indigo {
-  background: #eef2ff;
-  color: #4f46e5;
-}
-
-.mp-kpi-badge {
+.mp-kpi-pill {
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 99px;
-  background: #f1f5f9;
-  color: #475569;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
-.mp-kpi-badge.success {
+.mp-kpi-pill.success {
   background: #dcfce7;
   color: #15803d;
 }
 
-.mp-kpi-badge.warning {
+.mp-kpi-pill.warning {
   background: #fef3c7;
   color: #b45309;
 }
 
-.mp-kpi-badge.danger {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.mp-kpi-badge.indigo {
-  background: #e0e7ff;
-  color: #4338ca;
+.mp-kpi-pill.neutral {
+  background: var(--eg-surface-strong);
+  color: var(--eg-text-primary);
+  border: 1px solid var(--eg-border);
 }
 
 .mp-kpi-value {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 800;
-  color: #0f172a;
   line-height: 1.1;
   margin-bottom: 4px;
 }
@@ -7969,23 +8105,38 @@ footer {
 .mp-kpi-label {
   font-size: 12.5px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--eg-text-secondary);
 }
 
-/* Overview 2 Columns */
+.mp-kpi-sub {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--eg-border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--eg-text-secondary);
+}
+
+/* ========================================================
+   OVERVIEW 2 COLUMNS BALANCED (KHÔNG MẢNG TRẮNG RỖNG)
+   ======================================================== */
 .mp-overview-columns {
   display: grid;
-  grid-template-columns: 1.35fr 0.65fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
+  margin-bottom: 22px;
 }
 
 .mp-panel-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--eg-border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(85, 45, 34, 0.02);
+  display: flex;
+  flex-direction: column;
 }
 
 .mp-panel-header {
@@ -7993,9 +8144,9 @@ footer {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 16px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--eg-surface-muted);
 }
 
 .mp-panel-header h2 {
@@ -8014,11 +8165,106 @@ footer {
 .mp-link-btn {
   background: none;
   border: 0;
-  color: var(--rose);
-  font-size: 12.5px;
+  color: var(--eg-accent);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.mp-link-btn:hover {
+  text-decoration: underline;
+  color: var(--eg-accent-hover);
+}
+
+/* Quick Actions Bar at bottom */
+.mp-quick-actions-bar {
+  background: var(--eg-surface-strong);
+  border: 1px solid var(--eg-border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.mp-share-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.mp-share-input {
+  flex: 1;
+  max-width: 340px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--eg-border);
+  background: #ffffff;
+  font-size: 13px;
+  color: var(--eg-text-primary);
+  font-weight: 600;
+}
+
+.mp-btn-action {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--eg-border);
+  background: #ffffff;
+  color: var(--eg-text-primary);
+  transition: all 0.15s ease;
+}
+
+.mp-btn-action:hover {
+  background: var(--eg-surface-strong);
+  border-color: var(--eg-accent);
+}
+
+.mp-action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mp-btn-egift {
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.mp-btn-egift.primary {
+  background: var(--eg-accent);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(149, 68, 44, 0.25);
+}
+
+.mp-btn-egift.primary:hover {
+  background: var(--eg-accent-hover);
+  transform: translateY(-1px);
+}
+
+.mp-btn-egift.outline {
+  background: #ffffff;
+  color: var(--eg-text-primary);
+  border: 1px solid var(--eg-border);
+}
+
+.mp-btn-egift.outline:hover {
+  background: var(--eg-surface-strong);
+  border-color: var(--eg-border-hover);
 }
 
 .mp-top-list {
